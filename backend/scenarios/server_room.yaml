@@ -1,0 +1,23 @@
+id: server
+name: Server room at night
+short: Cooling fails at 2 a.m.
+start: "2026-09-12T02:08:00"
+duration_s: 480
+weather: "clear, 9 °C outside"
+desc: >-
+  Saturday 02:08. A cooling unit fails in the server room, and six minutes later the room starts heating up.
+  A lighting controller in the same room goes offline in between: a decoy. Watch Jev link the temperature to
+  the cooling fault, not to the lighting controller, so the on-call person gets one critical page.
+
+events:
+  - {t: 0, alarm: CRAC-2.COMP}
+  - {t: 10, alarm: AHU-4.DP, value: 262, limit: 250, unit: "Pa", measure: "filter differential pressure"}
+  - {t: 120, alarm: LC-S.COMM}
+  - {t: 150, alarm: EF-P1.RT, value: 2010, limit: 2000, unit: "h", measure: "runtime since last service"}
+  - {t: 360, alarm: SR.T1, value: 27.8, limit: 27, unit: "°C", measure: "temperature"}
+
+trends:
+  SR.T1: {step_s: 30, window_min: 6, unit: "°C", points: [[-3600, 25.1], [0, 25.4], [360, 27.8], [480, 30.2]]}
+  AHU-4.DP: {step_s: 21600, window_min: 20160, unit: "Pa", points: [[-1209600, 231], [10, 262]]}
+
+labels: {}

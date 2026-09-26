@@ -1,0 +1,40 @@
+id: power
+name: Power dip
+short: 43 alarms in about a minute
+start: "2026-09-08T14:32:00"
+duration_s: 330
+weather: "overcast, 18 °C outside"
+desc: >-
+  Tuesday 14:32. A short utility voltage dip trips 43 alarms in about a minute, far beyond the 10 alarms
+  in 10 minutes that alarm-management guidelines call a flood. Watch Jev link them to the dip. The elevators
+  stay separate because they have a floor, the fire panel is passed through untouched, and re-evaluation
+  pulls out the one air handler that fails to restart.
+
+events:
+  - {t: 5, alarm: MSB-1.V, value: 187, limit: 207, unit: "V", measure: "phase B voltage", direction: low}
+  - {t: 40, clear: MSB-1.V}
+  - {t: 6, alarm: UPS-1.BATT}
+  - {t: 45, clear: UPS-1.BATT}
+  - {t: 9, alarm: EL-1.FLT}
+  - {t: 70, clear: EL-1.FLT}
+  - {t: 12, alarm: EL-2.FLT}
+  - {t: 11, alarm: FAP.PSU}
+  - {t: 70, clear: FAP.PSU}
+  - {t: 13, alarm: ACP.BATT}
+  - {t: 100, clear: ACP.BATT}
+  - {t: 14, alarm: FC-3.RST}
+  - {t: 60, clear: FC-3.RST}
+  - {t: 16, alarm: FC-4.RST}
+  - {t: 62, clear: FC-4.RST}
+
+# Repeated families: {n} runs over the range; t and clear are expressions in n.
+families:
+  - {n: [1, 12], alarm: "AHU-{n}.FAN", t: "6+2*n", clear: "60+5*n", no_clear: [7]}
+  - {n: [1, 9], alarm: "VAVC-{n}.COMM", t: "8+3*n", clear: "80+7*n"}
+  - {n: [1, 6], alarm: "P-{n}.RUN", t: "7+3*n", clear: "50+6*n"}
+  - {n: [1, 8], alarm: "LC-{n}.COMM", t: "10+4*n", clear: "90+8*n"}
+
+trends:
+  MSB-1.V: {step_s: 5, window_min: 1, unit: "V", points: [[-600, 229], [4, 229], [5, 187], [38, 190], [40, 229], [330, 229]]}
+
+labels: {}

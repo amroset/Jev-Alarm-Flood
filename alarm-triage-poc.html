@@ -1,0 +1,717 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Alarm triage with Jev: proof of concept</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Semi+Condensed:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#DCDDD9; --panel:#EEEEEA; --panel2:#E4E5E1; --ink:#1E2226; --muted:#5B6168; --line:#C2C4C0;
+  --crit:#C4122F; --urg:#D98E04; --rev:#A3148C; --routine:#48525B; --ok:#2F6B4F; --focus:#1B5FD1;
+  --ff:"Barlow",system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
+  --ffc:"Barlow Semi Condensed","Barlow",system-ui,-apple-system,"Segoe UI",Arial,sans-serif;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#25282B; --panel:#2F3236; --panel2:#373B3F; --ink:#E7E8E5; --muted:#A3A8AD; --line:#474B50;
+    --crit:#FF4D5E; --urg:#F2B233; --rev:#E563D5; --routine:#B4BBC2; --ok:#6FC39A; --focus:#7AA7FF;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#25282B; --panel:#2F3236; --panel2:#373B3F; --ink:#E7E8E5; --muted:#A3A8AD; --line:#474B50;
+  --crit:#FF4D5E; --urg:#F2B233; --rev:#E563D5; --routine:#B4BBC2; --ok:#6FC39A; --focus:#7AA7FF;
+}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*,*::before,*::after{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--ff);font-size:15px;line-height:1.45;font-variant-numeric:tabular-nums}
+button,select,input{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.wrap{max-width:1480px;margin:0 auto;padding:18px 20px 40px}
+
+header.top{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px 24px;padding-bottom:14px;border-bottom:1px solid var(--line)}
+header.top h1{font-family:var(--ffc);font-weight:700;font-size:26px;line-height:1.1;margin:0;letter-spacing:.2px}
+header.top p{margin:4px 0 0;color:var(--muted);max-width:70ch}
+.bldg{font-family:var(--ffc);font-weight:600;color:var(--muted);text-align:right}
+.bldg strong{display:block;color:var(--ink);font-size:17px}
+
+.scenarios{display:flex;flex-wrap:wrap;gap:6px;margin:16px 0 10px}
+.scenarios button{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:8px 12px;cursor:pointer;text-align:left;min-width:180px}
+.scenarios button .s1{display:block;font-family:var(--ffc);font-weight:600;font-size:15px}
+.scenarios button .s2{display:block;color:var(--muted);font-size:13px}
+.scenarios button[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.scenarios button[aria-pressed="true"] .s2{color:var(--bg);opacity:.75}
+
+.controls{display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px;background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:10px 12px}
+.clock{font-family:var(--ffc);font-weight:700;font-size:22px;min-width:132px}
+.btn{background:var(--panel2);border:1px solid var(--line);border-radius:5px;padding:6px 12px;cursor:pointer;font-weight:600}
+.btn.primary{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.speed{display:flex;align-items:center;gap:6px;color:var(--muted)}
+.speed select{background:var(--panel2);border:1px solid var(--line);border-radius:5px;padding:5px 6px}
+.toggle{display:flex;align-items:center;gap:7px;cursor:pointer;user-select:none}
+.toggle input{width:17px;height:17px;accent-color:var(--ink)}
+.toggle.disabled{opacity:.45;cursor:not-allowed}
+.spacer{flex:1}
+.progress{height:4px;background:var(--line);border-radius:2px;overflow:hidden;width:100%;margin-top:2px}
+.progress div{height:100%;background:var(--ink);width:0}
+.desc{margin:12px 0 16px;max-width:95ch;color:var(--ink)}
+.note{color:var(--muted);font-size:13px}
+
+.grid{display:grid;grid-template-columns:minmax(230px,.8fr) minmax(300px,1.05fr) minmax(360px,1.4fr);gap:14px;align-items:start}
+@media (max-width:1100px){.grid{grid-template-columns:1fr 1fr}.detail{grid-column:1 / -1}}
+@media (max-width:720px){.grid{grid-template-columns:1fr}}
+.col{background:var(--panel);border:1px solid var(--line);border-radius:6px;min-width:0}
+.col > .head{padding:12px 14px 10px;border-bottom:1px solid var(--line)}
+.col h2{font-family:var(--ffc);font-weight:700;font-size:18px;margin:0}
+.col .sub{color:var(--muted);font-size:13px;margin-top:1px}
+.scroll{max-height:68vh;overflow:auto}
+@media (max-width:720px){.scroll{max-height:none}}
+
+/* raw feed: deliberately monotone */
+.feed{list-style:none;margin:0;padding:0}
+.feed li{display:grid;grid-template-columns:62px 1fr auto;gap:8px;padding:7px 14px;border-bottom:1px solid var(--line);font-size:13.5px;color:var(--ink)}
+.feed li:last-child{border-bottom:0}
+.feed .t{color:var(--muted);font-family:var(--ffc);font-weight:600}
+.feed .p{font-family:var(--ffc);font-weight:600;color:var(--muted)}
+.feed .p.hi{color:var(--ink)}
+.feed li.fresh{background:var(--panel2)}
+.feed .ls{font-size:12px;color:var(--muted);display:block}
+.count{font-family:var(--ffc);font-weight:700}
+
+/* the one bold thing: the funnel statement */
+.funnel{padding:14px 14px 12px;border-bottom:1px solid var(--line)}
+.funnel .big{font-family:var(--ffc);font-weight:700;font-size:30px;line-height:1.1}
+.funnel .big .n{font-size:44px}
+.funnel .big .arrow{color:var(--muted);font-weight:500;margin:0 6px}
+.funnel .row{display:flex;flex-wrap:wrap;gap:4px 16px;color:var(--muted);font-size:13px;margin-top:6px}
+
+.qsec{padding:8px 14px 4px;font-family:var(--ffc);font-weight:600;color:var(--muted);font-size:14px}
+.items{list-style:none;margin:0;padding:0 10px 10px}
+.item{display:block;width:100%;text-align:left;background:var(--panel2);border:1px solid var(--line);border-left:6px solid var(--line);border-radius:5px;padding:9px 10px;margin:6px 0;cursor:pointer}
+.item[aria-current="true"]{outline:2px solid var(--ink);outline-offset:0}
+.item.r4{border-left-color:var(--crit)}
+.item.r3{border-left-color:var(--urg)}
+.item.r2{border-left-color:var(--rev)}
+.item.r1{border-left-color:var(--routine)}
+.item.r0{border-left-color:var(--line)}
+.item.ls{border-left-color:var(--ink);border-left-style:double}
+.item.pending{border-left-style:dashed;border-left-color:var(--muted)}
+.item.cleared{opacity:.7}
+.item .l1{display:flex;align-items:baseline;gap:8px;justify-content:space-between}
+.item .title{font-weight:600}
+.item .l2{color:var(--muted);font-size:13px;margin-top:2px}
+.item .acts{display:flex;gap:8px;align-items:center;margin-top:6px;flex-wrap:wrap}
+.chip{display:inline-block;font-family:var(--ffc);font-weight:700;font-size:12.5px;padding:1px 8px;border-radius:3px;white-space:nowrap;border:1px solid transparent}
+.chip.r4{background:var(--crit);color:#fff}
+.chip.r3{background:var(--urg);color:#1E2226}
+.chip.r2{border:2px solid var(--rev);color:var(--rev);padding:0 7px}
+.chip.r1{border-color:var(--routine);color:var(--routine)}
+.chip.r0{color:var(--muted);border-color:var(--line)}
+.chip.pending{border:1px dashed var(--muted);color:var(--muted)}
+.chip.ls{background:var(--ink);color:var(--bg)}
+.chip.clr{color:var(--ok);border-color:var(--ok)}
+.ack{background:transparent;border:1px solid var(--ink);border-radius:4px;padding:2px 9px;font-size:13px;font-weight:600;cursor:pointer}
+.acked{font-size:13px;color:var(--ok);font-weight:600}
+details.more{margin:4px 10px 10px}
+details.more summary{cursor:pointer;font-family:var(--ffc);font-weight:600;color:var(--muted);padding:4px 4px}
+.empty{padding:14px;color:var(--muted)}
+
+/* detail */
+.detail .body{padding:12px 14px 16px}
+.dh h3{font-family:var(--ffc);font-weight:700;font-size:21px;margin:0}
+.dh .meta{color:var(--muted);font-size:13.5px;margin-top:3px}
+.dh .final{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;margin:10px 0 4px}
+.ev{border-top:1px solid var(--line);padding-top:12px;margin-top:14px}
+.evh{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}
+.evh .t{font-family:var(--ffc);font-weight:700}
+.evh .why{font-weight:600}
+.evg{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:10px}
+@media (max-width:560px){.evg{grid-template-columns:1fr}}
+.box{background:var(--panel2);border:1px solid var(--line);border-radius:5px;padding:10px 11px}
+.box h4{margin:0 0 6px;font-family:var(--ffc);font-weight:700;font-size:14.5px}
+.box.wide{grid-column:1 / -1}
+.state{margin:0;padding-left:16px;font-size:13.5px}
+.state li{margin:2px 0}
+.ans{display:grid;grid-template-columns:minmax(110px,auto) 1fr 44px;gap:5px 8px;align-items:center;font-size:13.5px}
+.ans .k{color:var(--muted)}
+.ans .v{font-weight:600;overflow-wrap:anywhere}
+.ans .bar{grid-column:2 / 3;height:6px;background:var(--line);border-radius:3px;overflow:hidden}
+.ans .bar div{height:100%;background:var(--ink)}
+.ans .num{font-family:var(--ffc);font-weight:600;text-align:right}
+.lat{margin:8px 0 0;font-size:12.5px;color:var(--muted)}
+.steps{margin:0;padding-left:20px;font-size:13.5px}
+.steps li{margin:3px 0}
+.steps li.block{color:var(--ink)}
+.steps .tag{font-family:var(--ffc);font-weight:700;font-size:12px;padding:0 5px;border-radius:3px;margin-right:4px;border:1px solid var(--line)}
+.steps .tag.stop{border-color:var(--ink)}
+.members{list-style:none;margin:8px 0 0;padding:0;font-size:13.5px}
+.members li{display:flex;justify-content:space-between;gap:10px;padding:5px 0;border-bottom:1px solid var(--line)}
+.members li:last-child{border-bottom:0}
+.mem{background:none;border:0;padding:0;text-align:left;cursor:pointer;text-decoration:underline;text-decoration-color:var(--line);text-underline-offset:3px}
+.intro h3{font-family:var(--ffc);font-weight:700;font-size:19px;margin:0 0 6px}
+.intro p{margin:0 0 10px;max-width:70ch}
+.legend{display:grid;grid-template-columns:auto 1fr;gap:6px 10px;align-items:center;font-size:13.5px;margin-top:6px}
+footer{margin-top:18px;color:var(--muted);font-size:13px;max-width:95ch}
+@media (prefers-reduced-motion:no-preference){
+  .feed li.fresh{transition:background .6s}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div>
+      <h1>Alarm triage with Jev</h1>
+      <p>Every alarm is judged in context and routed. Nothing is deleted: dangerous categories have floors, uncertain answers go up, and unacknowledged alarms escalate on their own.</p>
+    </div>
+    <div class="bldg"><strong>Harbor Point, Building A</strong>Office and data room, 4 floors</div>
+  </header>
+
+  <div class="scenarios" id="scenarios" role="group" aria-label="Scenario"></div>
+
+  <div class="controls">
+    <div>
+      <div class="clock" id="clock">Mon 06:00:00</div>
+      <div class="progress" aria-hidden="true"><div id="prog"></div></div>
+    </div>
+    <button class="btn primary" id="play">Play</button>
+    <button class="btn" id="step">Next event</button>
+    <button class="btn" id="reset">Restart</button>
+    <label class="speed">Speed
+      <select id="speed">
+        <option value="5">Slow</option>
+        <option value="10" selected>Normal</option>
+        <option value="30">Fast</option>
+      </select>
+    </label>
+    <span class="spacer"></span>
+    <label class="toggle" id="offlineWrap"><input type="checkbox" id="offline"> Simulate Jev outage</label>
+    <label class="toggle" id="mistakeWrap"><input type="checkbox" id="mistake"> Inject a Jev mistake</label>
+  </div>
+
+  <p class="desc" id="desc"></p>
+
+  <div class="grid">
+    <section class="col" aria-labelledby="feedH">
+      <div class="head">
+        <h2 id="feedH">Raw alarm feed <span class="count" id="feedCount">0</span></h2>
+        <div class="sub">What the building system shows operators today</div>
+      </div>
+      <div class="scroll"><ul class="feed" id="feed"></ul><div class="empty" id="feedEmpty">No alarms yet. Press Play.</div></div>
+    </section>
+
+    <section class="col" aria-labelledby="qH">
+      <div class="head">
+        <h2 id="qH">Triaged queue</h2>
+        <div class="sub">What operators see with Jev in the loop</div>
+      </div>
+      <div class="funnel" aria-live="polite">
+        <div class="big" id="funnelBig"><span class="n">0</span> alarms</div>
+        <div class="row" id="funnelRow"></div>
+      </div>
+      <div class="scroll" id="queue"></div>
+    </section>
+
+    <section class="col detail" aria-labelledby="dH">
+      <div class="head">
+        <h2 id="dH">How the decision was made</h2>
+        <div class="sub">Facts computed by code, Jev's answers, and the policy that turns them into an action</div>
+      </div>
+      <div class="scroll"><div class="body" id="detail"></div></div>
+    </section>
+  </div>
+
+  <footer>
+    Proof of concept. Jev's answers in this page are scripted examples written to illustrate the design; they are not live model output. The policy, floors, grouping, fallback and escalation logic run live in the page. Latency figures are simulated; cost is estimated at the published $0.042 per million input tokens, assuming about 350 input tokens per decision.
+  </footer>
+</div>
+
+<script>
+(function(){
+"use strict";
+const RANK={info:0,routine:1,review:2,urgent:3,critical:4};
+const RNAME=["Informational","Routine","Needs review","Urgent","Critical"];
+const CHANNEL=["Morning digest","Operator queue","Top of queue for review","Notified on-shift team","Paged on-call"];
+const BMSDEF={High:3,Medium:1,Low:0};
+const SETTLE=30, ACK_LIMIT=300, TOKENS=350, PRICE=0.042/1e6;
+const DAYS=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+
+function A(id,label,equip,loc,bms,o){return Object.assign({id,label,equip,loc,bms,floor:null,floorName:null,lifeSafety:false},o||{});}
+function J(sev,conf,team,teamConf,pNormal,same,pWait,impact){return {sev,conf,team,teamConf,pNormal,same,pWait,impact};}
+const S=(target,p)=>({target,p});
+
+/* ---------------- Scenarios ---------------- */
+function scenarioStartup(){
+  const d={}, ev=[];
+  const add=a=>d[a.id]=a;
+  add(A("CH2","Chiller 2: low condenser water flow","Chiller 2","Plant room, basement","High"));
+  ["1","2","3","4"].forEach(n=>add(A("AHU"+n,"AHU-"+n+": supply air temperature deviation","Air handler AHU-"+n,"Roof, serves floor "+n,"Medium")));
+  add(A("VAV207","VAV 2-07: damper not responding","VAV box 2-07","Floor 2, open office","Medium"));
+  add(A("VAV211","VAV 2-11: damper not responding","VAV box 2-11","Floor 2, east side","Medium"));
+  add(A("VAV304","VAV 3-04: damper not responding","VAV box 3-04","Floor 3, meeting room 3.2","Medium"));
+  add(A("P3","Pump P-3: differential pressure low","Pump P-3","Plant room, basement","Low"));
+  add(A("SRV","Server room temperature high","Server room sensor T-1","Floor 1, server room","High",{floor:3,floorName:"server room temperature"}));
+  const inc={STARTUP:{id:"STARTUP",title:"HVAC morning startup (schedule, 06:00)",team:"HVAC"}};
+  const burst="Related alarms: part of a burst that began when the 06:00 startup schedule ran";
+  ev.push({t:12,kind:"alarm",id:"CH2",state:["Chiller 2: low condenser water flow","Started 12 s after the 06:00 HVAC startup schedule","History: same alarm between 06:00 and 06:15 on each of the last 5 weekdays; cleared by itself within 10 min every time; never led to a ticket",burst],jev:J("info",.93,"HVAC",.9,.95,S("STARTUP",.9),.96,1)});
+  const ahuT={1:15,2:18,3:22,4:27};
+  [1,2,3,4].forEach(n=>ev.push({t:ahuT[n],kind:"alarm",id:"AHU"+n,state:["AHU-"+n+": supply air temperature "+(2.6+n*0.2).toFixed(1)+" °C above setpoint","Started "+ahuT[n]+" s after the startup schedule","History: alarmed at startup on "+(12+n)+" of the last 20 weekdays; longest occurrence 3 min 40 s",burst],jev:J("routine",.84-(n===3?.04:0),"HVAC",.91,.83,S("STARTUP",.88),.9,2)}));
+  ev.push({t:20,kind:"alarm",id:"VAV207",state:["VAV box 2-07: damper not responding to command","Started 20 s after the startup schedule","History: alarmed at startup on 9 of the last 20 weekdays; always cleared within 4 min",burst],jev:J("routine",.81,"HVAC",.88,.84,S("STARTUP",.85),.92,1)});
+  ev.push({t:31,kind:"alarm",id:"VAV211",state:["VAV box 2-11: damper not responding to command","Started 31 s after the startup schedule","History: alarmed at startup on 7 of the last 20 weekdays; always cleared within 4 min",burst],jev:J("routine",.8,"HVAC",.88,.82,S("STARTUP",.84),.91,1)});
+  ev.push({t:38,kind:"alarm",id:"VAV304",state:["VAV box 3-04: damper not responding to command","Started 38 s after the startup schedule","History: no alarm from this box at startup in the last 90 days",burst],jev:J("routine",.52,"HVAC",.86,.31,S("STARTUP",.55),.58,2)});
+  ev.push({t:25,kind:"alarm",id:"P3",state:["Pump P-3: differential pressure low","Started 25 s after the startup schedule","History: at startup on 16 of the last 20 weekdays; clears within 2 min",burst],jev:J("info",.9,"HVAC",.87,.9,S("STARTUP",.87),.95,1)});
+  ev.push({t:40,kind:"alarm",id:"SRV",state:["Server room temperature high: 27.3 °C (limit 27 °C)","Trend: steady around 26.5 °C for the past hour, rising for the last 5 min","History: 2 alarms in the last 90 days, both cleared within 10 min","Related alarms: none on the server room cooling units","Occupancy: unoccupied"],jev:J("urgent",.74,"IT",.86,.4,null,.35,3)});
+  ev.push({t:320,kind:"reeval",id:"AHU3",reason:"Re-evaluation: still active after 5 minutes",state:["AHU-3: supply air temperature still 2.8 °C above setpoint","Active for 5 min 0 s, longer than any previous startup occurrence (max 3 min 40 s)","The other three air handlers from the startup burst have cleared","Open tickets: none"],jev:J("urgent",.83,"HVAC",.93,.12,S("STARTUP",.28),.15,3)});
+  [["P3",120],["AHU1",130],["AHU2",150],["VAV207",160],["VAV211",170],["AHU4",180],["CH2",250],["SRV",330]].forEach(([id,t])=>ev.push({t,kind:"clear",id}));
+  return {id:"startup",name:"Monday startup",short:"10 alarms in the first minute",start:[1,6,0,0],duration:420,defs:d,incidents:inc,events:ev,
+    desc:"Monday 06:00. The HVAC schedule starts the building and 10 alarms arrive in the first minute. Watch the usual startup noise get grouped and sent away from the operator, while the alarms that break their own history stay in front of a person. After five minutes, re-evaluation catches the air handler that did not settle."};
+}
+
+function scenarioPowerDip(){
+  const d={}, ev=[];
+  const add=a=>d[a.id]=a;
+  const burst="Part of a burst of alarms that started with the switchboard voltage dip";
+  const hist="History: a similar burst on 3 March cleared when power returned";
+  add(A("SWB","Main switchboard MSB-1: voltage dip","Switchboard MSB-1","Electrical room, basement","High"));
+  ev.push({t:5,kind:"alarm",id:"SWB",state:["Main switchboard MSB-1: phase B voltage dip to 187 V (limit 207 V)","Utility supply event; generator not started","History: 1 similar dip in the last 12 months (3 March)","Related alarms: many arriving from equipment on this switchboard"],jev:J("urgent",.83,"Electrical",.95,.62,null,.2,4)});
+  ev.push({t:40,kind:"clear",id:"SWB"});
+  add(A("UPS","UPS-1 on battery","UPS-1","Electrical room, basement","High"));
+  ev.push({t:6,kind:"alarm",id:"UPS",state:["UPS-1 running on battery, 97% charge",burst,hist],jev:J("routine",.9,"Electrical",.93,.86,S("SWB",.92),.9,2)});
+  ev.push({t:45,kind:"clear",id:"UPS"});
+  for(let i=1;i<=12;i++){
+    const id="AHU"+i, t=6+i*2;
+    add(A(id,"AHU-"+i+": supply fan failure","Air handler AHU-"+i,"Roof","High"));
+    ev.push({t,kind:"alarm",id,state:["AHU-"+i+": supply fan status off while commanded on","Started "+(t-5)+" s after the voltage dip",burst,hist],jev:J("routine",.9,"HVAC",.92,.87,S("SWB",.91),.88,2)});
+    if(i!==7) ev.push({t:60+i*5,kind:"clear",id});
+  }
+  ev.push({t:180,kind:"reeval",id:"AHU7",reason:"Re-evaluation: did not recover with the others",state:["AHU-7: supply fan still off, 2 min 20 s after voltage returned to normal","All 11 other air handlers from the burst are running again","Open tickets: none for AHU-7"],jev:J("urgent",.86,"HVAC",.94,.1,S("SWB",.34),.18,3)});
+  for(let i=1;i<=9;i++){
+    const id="VAV"+i, t=8+i*3;
+    add(A(id,"VAV controller "+i+": no communication","VAV controller "+i,"Floor "+(1+(i%4)),"Medium"));
+    ev.push({t,kind:"alarm",id,state:["VAV controller "+i+": lost communication with the building system",burst,hist],jev:J("routine",.9,"HVAC",.88,.88,S("SWB",.9),.93,1)});
+    ev.push({t:80+i*7,kind:"clear",id});
+  }
+  for(let i=1;i<=6;i++){
+    const id="PMP"+i, t=7+i*3;
+    add(A(id,"Pump P-"+i+": stopped unexpectedly","Pump P-"+i,"Plant room, basement","High"));
+    ev.push({t,kind:"alarm",id,state:["Pump P-"+i+": stopped while commanded to run",burst,hist],jev:J("routine",.9,"HVAC",.9,.86,S("SWB",.9),.87,2)});
+    ev.push({t:50+i*6,kind:"clear",id});
+  }
+  for(let i=1;i<=8;i++){
+    const id="LTG"+i, t=10+i*4;
+    add(A(id,"Lighting controller LC-"+i+": offline","Lighting controller LC-"+i,"Floor "+(1+(i%4)),"Low"));
+    ev.push({t,kind:"alarm",id,state:["Lighting controller LC-"+i+": offline",burst,hist],jev:J("info",.92,"Electrical",.85,.9,S("SWB",.9),.97,1)});
+    ev.push({t:90+i*8,kind:"clear",id});
+  }
+  add(A("EL1","Elevator 1: out of service","Elevator 1","Core, all floors","High",{floor:3,floorName:"elevators (people may be trapped)"}));
+  add(A("EL2","Elevator 2: out of service","Elevator 2","Core, all floors","High",{floor:3,floorName:"elevators (people may be trapped)"}));
+  ev.push({t:9,kind:"alarm",id:"EL1",state:["Elevator 1: controller fault, out of service","Car position: floor 2, doors closed",burst],jev:J("urgent",.78,"Elevator vendor",.9,.5,S("SWB",.88),.2,4)});
+  ev.push({t:12,kind:"alarm",id:"EL2",state:["Elevator 2: controller fault, out of service","Car position: between floors 3 and 4",burst],jev:J("urgent",.8,"Elevator vendor",.9,.45,S("SWB",.88),.15,4)});
+  ev.push({t:70,kind:"clear",id:"EL1"});
+  ev.push({t:180,kind:"reeval",id:"EL2",reason:"Re-evaluation: still out of service",state:["Elevator 2: still out of service, 2 min 20 s after voltage returned","Elevator 1 recovered automatically","Car position: between floors 3 and 4"],jev:J("urgent",.88,"Elevator vendor",.92,.08,S("SWB",.4),.05,4)});
+  add(A("FIRE","Fire alarm panel: power supply trouble","Fire alarm panel","Lobby","High",{lifeSafety:true}));
+  ev.push({t:11,kind:"alarm",id:"FIRE"});
+  ev.push({t:70,kind:"clear",id:"FIRE"});
+  add(A("FC3","Field controller FC-3 restarted","Field controller FC-3","Floor 3","Low"));
+  add(A("FC4","Field controller FC-4 restarted","Field controller FC-4","Floor 4","Low"));
+  add(A("ACC","Access control panel on battery","Access control panel","Lobby","Medium"));
+  ev.push({t:14,kind:"alarm",id:"FC3",state:["Field controller FC-3 restarted",burst],jev:J("info",.93,"Electrical",.8,.9,S("SWB",.92),.97,1)});
+  ev.push({t:16,kind:"alarm",id:"FC4",state:["Field controller FC-4 restarted",burst],jev:J("info",.93,"Electrical",.8,.9,S("SWB",.92),.97,1)});
+  ev.push({t:13,kind:"alarm",id:"ACC",state:["Access control panel running on battery",burst],jev:J("routine",.88,"Security",.86,.85,S("SWB",.9),.9,2)});
+  ev.push({t:60,kind:"clear",id:"FC3"}); ev.push({t:62,kind:"clear",id:"FC4"}); ev.push({t:100,kind:"clear",id:"ACC"});
+  return {id:"power",name:"Power dip",short:"43 alarms in about a minute",start:[2,14,32,0],duration:330,defs:d,incidents:{},events:ev,
+    desc:"Tuesday 14:32. A short utility voltage dip trips 43 alarms in about a minute, far beyond the 10 alarms in 10 minutes that alarm-management guidelines call a flood. Watch them collapse into one incident. The elevators stay separate because they have a floor, the fire panel is passed through untouched, and re-evaluation pulls out the one air handler that fails to restart."};
+}
+
+function scenarioServer(){
+  const d={}, ev=[];
+  const add=a=>d[a.id]=a;
+  add(A("CRAC2","CRAC-2: compressor fault","Cooling unit CRAC-2","Floor 1, server room","High"));
+  add(A("LOB","Lobby lighting controller offline","Lighting controller LC-L","Lobby","Low"));
+  add(A("PKF","Parking exhaust fan: runtime exceeded","Exhaust fan EF-P1","Parking level","Medium"));
+  add(A("SRV","Server room temperature high","Server room sensor T-1","Floor 1, server room","High",{floor:3,floorName:"server room temperature"}));
+  ev.push({t:0,kind:"alarm",id:"CRAC2",state:["CRAC-2 cooling unit: compressor fault, unit stopped","Serves the server room together with CRAC-1","History: no fault on CRAC-2 in the last 12 months","Server room temperature: 25.1 °C, flat","Occupancy: unoccupied (Saturday night)"],jev:J("urgent",.79,"HVAC",.83,.15,null,.25,4)});
+  ev.push({t:60,kind:"alarm",id:"LOB",state:["Lobby lighting controller offline","History: offline 6 times in the last 30 days, always back within 1 hour","Related alarms: none"],jev:J("info",.9,"Electrical",.84,.9,null,.97,1)});
+  ev.push({t:150,kind:"alarm",id:"PKF",state:["Parking exhaust fan EF-P1: runtime over 2000 h since last service","Maintenance counter, not a fault","History: same reminder raised every quarter"],jev:J("routine",.88,"HVAC",.9,.8,null,.95,1)});
+  ev.push({t:360,kind:"alarm",id:"SRV",state:["Server room temperature high: 27.8 °C (limit 27 °C)","Trend: rising 0.4 °C per minute for the last 6 minutes","Related alarms: CRAC-2 compressor fault, 6 min ago","History: no temperature alarm in this room in the last 90 days","Occupancy: unoccupied (Saturday 02:14)"],jev:J("critical",.93,"IT",.88,.05,S("CRAC2",.91),.03,5)});
+  ev.push({t:361,kind:"reeval",id:"CRAC2",reason:"Re-evaluation: new related alarm",state:["CRAC-2: compressor fault, still stopped after 6 min","New related alarm: server room temperature high, rising 0.4 °C/min","CRAC-1 running at full capacity"],jev:J("critical",.9,"HVAC",.87,.05,S("SRV",.92),.04,5)});
+  ev.push({t:420,kind:"reeval",id:"SRV",reason:"Re-evaluation: trend worsening",state:["Server room temperature: 29.9 °C and still rising (0.35 °C/min)","CRAC-2 still stopped","Not yet acknowledged"],jev:J("critical",.97,"IT",.9,.02,S("CRAC2",.93),.01,5)});
+  return {id:"server",name:"Server room at night",short:"Cooling fails at 2 a.m.",start:[6,2,8,0],duration:480,defs:d,incidents:{},events:ev,
+    desc:"Saturday 02:08. A cooling unit fails in the server room, and six minutes later the room starts heating up. Watch Jev link the two alarms so the on-call person gets one critical page instead of two separate alerts, while unrelated noise from the lobby and car park stays out of the way."};
+}
+
+function scenarioLeak(){
+  const d={}, ev=[];
+  const add=a=>d[a.id]=a;
+  add(A("WL","Water leak sensor: basement supply pipe","Leak sensor WL-B2","Basement, under main supply pipe","High",{floor:3,floorName:"water leaks"}));
+  add(A("CR42","Meeting room 4.2: temperature high","Room sensor 4.2","Floor 4, meeting room 4.2","Medium"));
+  add(A("FLT","AHU-2: filter differential pressure high","Air handler AHU-2","Roof","Low"));
+  add(A("KEF","Kitchen exhaust fan: runtime reminder","Exhaust fan EF-K","Floor 1, kitchen","Low"));
+  ev.push({t:0,kind:"alarm",id:"WL",state:["Water leak sensor WL-B2 triggered, 30 s","History: no alarm from this sensor in the last 12 months","Related alarms: none","Location: under main domestic water supply pipe"],
+    jev:J("urgent",.81,"Plumbing",.92,.04,null,.12,4),jevMistake:J("routine",.72,"Plumbing",.9,.68,null,.6,2)});
+  ev.push({t:90,kind:"reeval",id:"WL",reason:"Re-evaluation: triggered again",state:["Water leak sensor WL-B2: second trigger, 40 s","2 triggers in 90 s, after 12 months of silence","Related alarms: none"],
+    jev:J("urgent",.86,"Plumbing",.93,.03,null,.08,4),jevMistake:J("routine",.7,"Plumbing",.9,.66,null,.58,2)});
+  ev.push({t:200,kind:"reeval",id:"WL",reason:"Re-evaluation: third trigger",state:["Water leak sensor WL-B2: third trigger, now continuous for 45 s","3 triggers in 200 s","Related alarms: none"],
+    jev:J("urgent",.9,"Plumbing",.94,.02,null,.05,4),jevMistake:J("routine",.66,"Plumbing",.9,.62,null,.55,2)});
+  ev.push({t:40,kind:"alarm",id:"CR42",state:["Meeting room 4.2: 25.6 °C (limit 25 °C)","Sunny morning; south-facing room","History: same alarm on 11 of the last 20 sunny weekdays, clears by midday","Occupancy: occupied"],jev:J("routine",.86,"HVAC",.88,.82,null,.9,1)});
+  ev.push({t:120,kind:"alarm",id:"FLT",state:["AHU-2 filter differential pressure: 285 Pa (limit 280 Pa)","Trend: rising slowly for 3 weeks","Open tickets: none"],jev:J("routine",.88,"HVAC",.93,.7,null,.92,2)});
+  ev.push({t:260,kind:"alarm",id:"KEF",state:["Kitchen exhaust fan: 1500 h since last service","Maintenance counter, not a fault"],jev:J("info",.92,"HVAC",.9,.88,null,.98,1)});
+  return {id:"leak",name:"Water leak",short:"Jev can get it wrong",start:[2,10,20,0],duration:480,defs:d,incidents:{},events:ev,
+    desc:"Tuesday 10:20. A basement leak sensor triggers three times. Turn on 'Inject a Jev mistake' and restart to watch Jev misjudge it as routine: the downgrade bar blocks it, the water-leak floor keeps it urgent, and if nobody acknowledges within five minutes it escalates to critical on its own."};
+}
+
+const SCENARIOS=[scenarioStartup(),scenarioPowerDip(),scenarioServer(),scenarioLeak()];
+
+/* ---------------- Engine ---------------- */
+let sc, st, timer=null, selected=null;
+const $=id=>document.getElementById(id);
+const offlineEl=$("offline"), mistakeEl=$("mistake");
+
+function reset(){
+  stop();
+  st={now:0,evIdx:0,alarms:{},order:[],pending:[],feed:[],jevCalls:0,latSum:0,ended:false};
+  sc.events.sort((a,b)=>a.t-b.t);
+  selected=null;
+  render();
+}
+function clockStr(t){
+  const [day,h,m,s]=sc.start; let tot=h*3600+m*60+s+Math.floor(t);
+  const dd=(day+Math.floor(tot/86400))%7; tot%=86400;
+  const p=n=>String(n).padStart(2,"0");
+  return DAYS[dd]+" "+p(Math.floor(tot/3600))+":"+p(Math.floor(tot%3600/60))+":"+p(tot%60);
+}
+function titleOf(id){
+  if(sc.incidents[id]) return sc.incidents[id].title;
+  if(sc.defs[id]) return sc.defs[id].label;
+  return id;
+}
+function pct(x){return x.toFixed(2);}
+
+function policy(def,jev){
+  const steps=[]; let r, parent=null, link=null, team;
+  const dflt=BMSDEF[def.bms];
+  if(!jev){
+    r=dflt;
+    steps.push({t:"Jev did not respond, so the building system's own priority is kept: "+def.bms+" ("+RNAME[dflt]+"). This is today's behavior.",stop:true});
+    team="Facilities desk";
+  } else {
+    r=RANK[jev.sev];
+    steps.push({t:"Jev's severity: "+RNAME[r]+" (confidence "+pct(jev.conf)+")."});
+    if(r<dflt){
+      if(jev.conf>=0.9 && jev.pNormal>=0.85){
+        steps.push({t:"Lower than the building system's default ("+RNAME[dflt]+"). Confidence ≥ 0.90 and history match ≥ 0.85, so the downgrade is allowed."});
+      } else {
+        steps.push({t:"Lower than the building system's default ("+RNAME[dflt]+"). A downgrade needs confidence ≥ 0.90 and history match ≥ 0.85; not met, so it stays "+RNAME[dflt]+".",stop:true});
+        r=dflt;
+      }
+    } else {
+      steps.push({t:"At or above the building system's default ("+RNAME[dflt]+"), so no downgrade check is needed."});
+    }
+    if(jev.conf<0.6 && r<RANK.review){
+      r=RANK.review;
+      steps.push({t:"Confidence below 0.60: uncertainty goes up, so it is sent to a person for review.",stop:true});
+    }
+    team = jev.teamConf>=0.7 ? jev.team : "Facilities desk";
+    steps.push({t: jev.teamConf>=0.7 ? "Routed to "+jev.team+" (confidence "+pct(jev.teamConf)+")." : "Team confidence below 0.70, so routed to the general facilities desk."});
+  }
+  if(def.floor!=null){
+    if(r<def.floor){ steps.push({t:"Floor for "+def.floorName+": "+RNAME[def.floor]+". Raised to the floor.",stop:true}); r=def.floor; }
+    else steps.push({t:"Floor for "+def.floorName+" ("+RNAME[def.floor]+") is satisfied."});
+  }
+  if(jev && jev.same){
+    const tt=titleOf(jev.same.target);
+    if(jev.same.p>=0.8){
+      if(def.floor!=null){ link=jev.same.target; steps.push({t:"Likely the same cause as \u201C"+tt+"\u201D ("+pct(jev.same.p)+"), but alarms with a floor always stay visible on their own. Shown separately, with a link."}); }
+      else { parent=jev.same.target; steps.push({t:"Same cause as \u201C"+tt+"\u201D ("+pct(jev.same.p)+"): grouped with it instead of shown separately."}); }
+    } else {
+      steps.push({t:"Link to \u201C"+tt+"\u201D is too uncertain ("+pct(jev.same.p)+" < 0.80), so it is shown on its own."});
+    }
+  }
+  return {rank:r,steps,parent,link,team};
+}
+
+function decide(al,ev,t,reason){
+  const offline=offlineEl.checked;
+  const jev = offline ? null : ((mistakeEl.checked && ev.jevMistake) ? ev.jevMistake : ev.jev);
+  const pol=policy(al.def,jev);
+  const lat = jev ? Math.round(85+Math.random()*335) : null;
+  if(jev){ st.jevCalls++; st.latSum+=lat; }
+  if(al.escalated && al.rank!=null && pol.rank<al.rank){
+    pol.steps.push({t:"Already escalated by the timer; a re-evaluation can raise the priority but never undo an escalation. Stays "+RNAME[al.rank]+".",stop:true});
+    pol.rank=al.rank;
+  }
+  if(al.rank!==pol.rank){ al.rankSince=t; al.escalated=false; }
+  al.rank=pol.rank; al.parent=pol.parent; al.link=pol.link; al.team=pol.team; al.status="active";
+  al.evals.push({t,reason,state:ev.state||[],jev,steps:pol.steps,rank:pol.rank,team:pol.team,lat,offline,mistake:!!(jev && mistakeEl.checked && ev.jevMistake)});
+}
+
+function applyEvent(ev){
+  const t=ev.t;
+  if(ev.kind==="alarm"){
+    const def=sc.defs[ev.id];
+    const al={def,arrivedAt:t,status:"settling",evals:[],rank:null,rankSince:t,parent:null,link:null,team:null,acked:false,escalated:false,clearedAt:null};
+    st.alarms[ev.id]=al; st.order.push(ev.id);
+    st.feed.unshift({t,id:ev.id});
+    if(def.lifeSafety){ al.status="bypass"; }
+    else if(def.floor!=null){ decide(al,ev,t,"Arrived: category with a floor, decided immediately"); }
+    else { st.pending.push({t:t+SETTLE,id:ev.id,ev}); }
+  } else if(ev.kind==="reeval"){
+    const al=st.alarms[ev.id];
+    if(al && al.status==="active") decide(al,ev,t,ev.reason);
+  } else if(ev.kind==="clear"){
+    const al=st.alarms[ev.id]; if(!al) return;
+    if(al.status==="settling"){ st.pending=st.pending.filter(p=>p.id!==ev.id); }
+    al.status="cleared"; al.clearedAt=t;
+    st.feed.unshift({t,id:ev.id,cleared:true});
+  }
+}
+function isItem(al){return !al.parent;}
+function advance(to){
+  to=Math.min(to,sc.duration);
+  while(true){
+    const nextEv = st.evIdx<sc.events.length ? sc.events[st.evIdx].t : Infinity;
+    const nextP = st.pending.length ? Math.min(...st.pending.map(p=>p.t)) : Infinity;
+    const nxt=Math.min(nextEv,nextP);
+    if(nxt>to) break;
+    st.now=nxt;
+    if(nextP<=nextEv){
+      const i=st.pending.findIndex(p=>p.t===nextP); const p=st.pending.splice(i,1)[0];
+      const al=st.alarms[p.id];
+      if(al && al.status==="settling") decide(al,p.ev,p.t,"Decided after a "+SETTLE+" s settling window");
+    } else { applyEvent(sc.events[st.evIdx++]); }
+    escalations(st.now);
+  }
+  st.now=to; escalations(to);
+  if(st.now>=sc.duration){ st.ended=true; stop(); }
+}
+function escalations(t){
+  for(const id of st.order){
+    const al=st.alarms[id];
+    if(al.status!=="active"||al.acked||al.escalated||!isItem(al)||al.rank!==RANK.urgent) continue;
+    if(t-al.rankSince>=ACK_LIMIT){
+      al.rank=RANK.critical; al.escalated=true;
+      al.evals.push({t:al.rankSince+ACK_LIMIT,reason:"Escalation timer",state:[],jev:null,escalation:true,
+        steps:[{t:"Urgent and not acknowledged within 5 minutes. Escalated to Critical by a fixed rule in code; Jev is not involved.",stop:true}],rank:RANK.critical,team:al.team});
+    }
+  }
+}
+function nextTime(){
+  const nextEv = st.evIdx<sc.events.length ? sc.events[st.evIdx].t : Infinity;
+  const nextP = st.pending.length ? Math.min(...st.pending.map(p=>p.t)) : Infinity;
+  let n=Math.min(nextEv,nextP);
+  for(const id of st.order){ const al=st.alarms[id];
+    if(al.status==="active"&&!al.acked&&!al.escalated&&isItem(al)&&al.rank===RANK.urgent) n=Math.min(n,al.rankSince+ACK_LIMIT); }
+  return n===Infinity? sc.duration : Math.max(n,st.now+1);
+}
+
+/* ---------------- Items ---------------- */
+function children(id){return st.order.filter(k=>st.alarms[k].parent===id && st.alarms[k].status!=="settling");}
+function openKids(id){return children(id).filter(k=>st.alarms[k].status==="active");}
+function buildItems(){
+  const out={ls:[],pending:[],main:[],digest:[],cleared:[]};
+  for(const incId of Object.keys(sc.incidents)){
+    const kids=children(incId); if(!kids.length) continue;
+    const open=openKids(incId);
+    const rank=open.length?Math.max(...open.map(k=>st.alarms[k].rank)):null;
+    const it={type:"incident",id:incId,rank,kids,open,title:sc.incidents[incId].title,team:sc.incidents[incId].team,since:Math.min(...kids.map(k=>st.alarms[k].arrivedAt))};
+    if(open.length) (rank===0?out.digest:out.main).push(it); else out.cleared.push(it);
+  }
+  for(const id of st.order){
+    const al=st.alarms[id];
+    if(al.status==="bypass"){ out.ls.push({type:"ls",id,al}); continue; }
+    if(al.status==="settling"){ out.pending.push({type:"pending",id,al}); continue; }
+    if(!isItem(al)) continue;
+    const kids=children(id), open=openKids(id);
+    const ranks=open.map(k=>st.alarms[k].rank); if(al.status==="active") ranks.push(al.rank);
+    const it={type:"alarm",id,al,kids,open,rank:ranks.length?Math.max(...ranks):null,title:al.def.label,team:al.team,since:al.arrivedAt};
+    if(ranks.length) (it.rank===0?out.digest:out.main).push(it); else if(al.def.lifeSafety){} else out.cleared.push(it);
+  }
+  out.main.sort((a,b)=>b.rank-a.rank||a.since-b.since);
+  out.cleared.sort((a,b)=>b.since-a.since);
+  return out;
+}
+
+/* ---------------- Render ---------------- */
+function esc(s){return String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));}
+function chip(rank,extra){ if(rank==null) return ""; return '<span class="chip r'+rank+'">'+RNAME[rank]+(extra||"")+'</span>'; }
+
+function renderScenarios(){
+  $("scenarios").innerHTML=SCENARIOS.map(s=>'<button type="button" data-id="'+s.id+'" aria-pressed="'+(s===sc)+'"><span class="s1">'+esc(s.name)+'</span><span class="s2">'+esc(s.short)+'</span></button>').join("");
+  $("scenarios").querySelectorAll("button").forEach(b=>b.onclick=()=>{ sc=SCENARIOS.find(s=>s.id===b.dataset.id); mistakeEl.checked=false; renderScenarios(); updateToggles(); reset(); });
+}
+function updateToggles(){
+  const has=sc.events.some(e=>e.jevMistake);
+  mistakeEl.disabled=!has; $("mistakeWrap").classList.toggle("disabled",!has);
+  $("mistakeWrap").title = has? "" : "Available in the Water leak scenario";
+}
+
+function render(){
+  $("clock").textContent=clockStr(st.now);
+  $("prog").style.width=(100*st.now/sc.duration)+"%";
+  $("desc").textContent=sc.desc;
+  $("play").textContent= timer? "Pause" : (st.ended? "Finished" : (st.now>0? "Resume":"Play"));
+  $("play").disabled=st.ended; $("step").disabled=st.ended;
+
+  // feed
+  const arrived=st.order.length;
+  $("feedCount").textContent=arrived;
+  $("feedEmpty").style.display=st.feed.length?"none":"block";
+  $("feed").innerHTML=st.feed.map(f=>{
+    const d=sc.defs[f.id]; const fresh=st.now-f.t<3;
+    if(f.cleared) return '<li class="'+(fresh?"fresh":"")+'"><span class="t">'+clockStr(f.t).slice(4)+'</span><span>'+esc(d.label)+'<span class="ls">Returned to normal</span></span><span class="p">Clear</span></li>';
+    return '<li class="'+(fresh?"fresh":"")+'"><span class="t">'+clockStr(f.t).slice(4)+'</span><span>'+esc(d.label)+(d.lifeSafety?'<span class="ls">Life-safety system</span>':'')+'</span><span class="p'+(d.bms==="High"?" hi":"")+'">'+d.bms+'</span></li>';
+  }).join("");
+
+  // queue
+  const items=buildItems();
+  const needPerson=items.main.filter(i=>i.rank>=2).length + items.ls.filter(i=>i.al.status==="bypass").length;
+  const openAlarms=st.order.filter(id=>["active","settling","bypass"].includes(st.alarms[id].status)).length;
+  const grouped=st.order.filter(id=>st.alarms[id].parent && st.alarms[id].status==="active").length;
+  $("funnelBig").innerHTML='<span class="n">'+arrived+'</span> alarm'+(arrived===1?"":"s")+'<span class="arrow">to</span><span class="n">'+needPerson+'</span> for a person now';
+  const cost=st.jevCalls*TOKENS*PRICE;
+  $("funnelRow").innerHTML=[
+    openAlarms+" still active",
+    grouped+" grouped under a cause",
+    items.digest.length+" in the morning digest",
+    st.jevCalls+" Jev decisions"+(st.jevCalls?", avg "+Math.round(st.latSum/st.jevCalls)+" ms (simulated)":""),
+    "est. $"+cost.toFixed(5)
+  ].map(s=>"<span>"+s+"</span>").join("");
+
+  let q="";
+  if(items.ls.length){
+    q+='<div class="qsec">Life-safety system, not triaged</div><ul class="items">'+items.ls.map(i=>itemHTML(i)).join("")+'</ul>';
+  }
+  if(items.pending.length){
+    q+='<div class="qsec">Collecting related alarms ('+SETTLE+' s window)</div><ul class="items">'+items.pending.map(i=>itemHTML(i)).join("")+'</ul>';
+  }
+  q+='<div class="qsec">Queue</div>';
+  q+= items.main.length? '<ul class="items">'+items.main.map(i=>itemHTML(i)).join("")+'</ul>' : '<div class="empty">'+(arrived?"Nothing needs the queue right now.":"Waiting for alarms.")+'</div>';
+  if(items.digest.length) q+='<details class="more"><summary>Morning digest ('+items.digest.length+')</summary><ul class="items" style="padding:0">'+items.digest.map(i=>itemHTML(i)).join("")+'</ul></details>';
+  if(items.cleared.length) q+='<details class="more"><summary>Cleared ('+items.cleared.length+')</summary><ul class="items" style="padding:0">'+items.cleared.map(i=>itemHTML(i,true)).join("")+'</ul></details>';
+  const qs=$("queue"); const sTop=qs.scrollTop; qs.innerHTML=q; qs.scrollTop=sTop;
+  qs.querySelectorAll("[data-sel]").forEach(b=>b.onclick=e=>{ if(e.target.closest(".ack")) return; selected=b.dataset.sel; render(); });
+  qs.querySelectorAll(".ack").forEach(b=>b.onclick=e=>{ e.stopPropagation(); const al=st.alarms[b.dataset.ack]; if(al){ al.acked=true; al.evals.push({t:st.now,reason:"Acknowledged by operator",state:[],jev:null,ack:true,steps:[{t:"Operator acknowledged the alarm. The escalation timer stops."}],rank:al.rank,team:al.team}); } render(); });
+
+  renderDetail();
+}
+
+function itemHTML(i,cleared){
+  const cur=selected===i.id?' aria-current="true"':"";
+  if(i.type==="ls") return '<li><button type="button" class="item ls" data-sel="'+i.id+'"'+cur+'><div class="l1"><span class="title">'+esc(i.al.def.label)+'</span><span class="chip ls">Passed through</span></div><div class="l2">Handled by the fire alarm system exactly as today</div></button></li>';
+  if(i.type==="pending"){
+    const left=Math.max(0,Math.ceil(i.al.arrivedAt+SETTLE-st.now));
+    return '<li><button type="button" class="item pending" data-sel="'+i.id+'"'+cur+'><div class="l1"><span class="title">'+esc(i.al.def.label)+'</span><span class="chip pending">Settling '+left+' s</span></div><div class="l2">'+esc(i.al.def.loc)+'</div></button></li>';
+  }
+  const al=i.al;
+  const rankCls = cleared? "cleared" : "r"+i.rank;
+  let l2=[];
+  if(i.type==="incident"){ l2.push(i.kids.length+" related alarms, "+(i.kids.length-i.open.length)+" cleared"); l2.push(i.team); }
+  else {
+    if(al.status==="cleared" && i.open.length) l2.push("Cleared, "+i.open.length+" related still active");
+    else if(i.kids.length) l2.push(i.kids.length+" related alarm"+(i.kids.length>1?"s":"")+", "+(i.kids.length-i.open.length)+" cleared");
+    l2.push(al.def.loc);
+    if(al.team) l2.push(al.team);
+    if(al.link) l2.push("Probably caused by: "+titleOf(al.link));
+  }
+  let acts="";
+  if(!cleared && i.type==="alarm" && al.status==="active" && i.rank>=3){
+    acts='<div class="acts"><span class="note">'+CHANNEL[i.rank]+'</span>'+(al.acked?'<span class="acked">Acknowledged</span>':'<span class="ack" role="button" tabindex="0" data-ack="'+i.id+'">Acknowledge</span>')+'</div>';
+  } else if(!cleared && i.rank!=null){
+    acts='<div class="acts"><span class="note">'+CHANNEL[i.rank]+'</span></div>';
+  }
+  const ch = cleared? '<span class="chip clr">Cleared</span>' : chip(i.rank, (al&&al.escalated&&i.type==="alarm")?", escalated":"");
+  return '<li><button type="button" class="item '+rankCls+'" data-sel="'+i.id+'"'+cur+'><div class="l1"><span class="title">'+esc(i.title)+'</span>'+ch+'</div><div class="l2">'+esc(l2.join(" \u2022 "))+'</div>'+acts+'</button></li>';
+}
+
+function ansRow(k,v,p){
+  return '<span class="k">'+k+'</span><span class="v">'+esc(v)+'</span><span></span>'+(p==null?'':'<span class="bar" aria-hidden="true" style="grid-column:1 / 3"><div style="width:'+Math.round(p*100)+'%"></div></span><span class="num">'+pct(p)+'</span>');
+}
+function evalHTML(e){
+  let h='<div class="ev"><div class="evh"><span class="t">'+clockStr(e.t).slice(4)+'</span><span class="why">'+esc(e.reason)+'</span>'+chip(e.rank)+'</div>';
+  if(e.escalation||e.ack){
+    h+='<div class="evg"><div class="box wide"><h4>Policy in code</h4><ol class="steps">'+e.steps.map(s=>'<li>'+esc(s.t)+'</li>').join("")+'</ol></div></div></div>';
+    return h;
+  }
+  h+='<div class="evg">';
+  h+='<div class="box"><h4>What Jev reads</h4><ul class="state">'+e.state.map(s=>'<li>'+esc(s)+'</li>').join("")+'</ul></div>';
+  h+='<div class="box"><h4>Jev\u2019s answers'+(e.mistake?' (injected mistake)':'')+'</h4>';
+  if(e.jev){
+    const j=e.jev;
+    h+='<div class="ans">'+
+      ansRow("Severity",RNAME[RANK[j.sev]],j.conf)+
+      ansRow("Team",j.team,j.teamConf)+
+      ansRow("Matches its history","yes",j.pNormal)+
+      ansRow("Same cause as", j.same? titleOf(j.same.target) : "no candidate offered", j.same? j.same.p : null)+
+      ansRow("Can wait until tomorrow","yes",j.pWait)+
+      ansRow("Impact",j.impact+" of 5",j.impact/5)+
+      '</div><p class="lat">One request, six questions, answered in '+e.lat+' ms (simulated). Scripted example answers.</p>';
+  } else {
+    h+='<p class="note" style="margin:0">No answer: Jev was unavailable for this decision.</p>';
+  }
+  h+='</div>';
+  h+='<div class="box wide"><h4>Policy in code</h4><ol class="steps">'+e.steps.map(s=>'<li>'+(s.stop?'<span class="tag stop">Rule applied</span>':'')+esc(s.t)+'</li>').join("")+'</ol>';
+  h+='<p class="lat" style="margin-top:8px">Result: '+RNAME[e.rank]+', '+CHANNEL[e.rank].toLowerCase()+(e.team?", "+esc(e.team):"")+'.</p></div>';
+  h+='</div></div>';
+  return h;
+}
+function renderDetail(){
+  const el=$("detail");
+  if(!selected){
+    el.innerHTML='<div class="intro"><h3>Select an item in the queue</h3><p>Each decision shows three things: the facts code computed from the building system and its history, the answers Jev gave to six typed questions, and the rules in code that turned those answers into a priority and a channel.</p>'+
+      '<p>Colour is reserved for priority, following control-room display practice: everything normal stays grey.</p><div class="legend">'+
+      [4,3,2,1,0].map(r=>chip(r)+'<span>'+CHANNEL[r]+'</span>').join("")+
+      '<span class="chip ls">Passed through</span><span>Life-safety systems are never triaged</span></div></div>';
+    return;
+  }
+  if(sc.incidents[selected]){
+    const inc=sc.incidents[selected], kids=children(selected);
+    el.innerHTML='<div class="dh"><h3>'+esc(inc.title)+'</h3><div class="meta">Created by code from the building schedule. Alarms join it when Jev links them with confidence ≥ 0.80.</div></div>'+
+      '<ul class="members">'+kids.map(k=>{const a=st.alarms[k];return '<li><button type="button" class="mem" data-sel="'+k+'">'+esc(a.def.label)+'</button>'+(a.status==="cleared"?'<span class="chip clr">Cleared</span>':chip(a.rank))+'</li>';}).join("")+'</ul>'+
+      '<p class="note">Each member was judged individually; select one to see its decision. The group shows the highest priority among its active members.</p>';
+    bindMembers(el);
+    return;
+  }
+  const al=st.alarms[selected]; if(!al){ el.innerHTML=""; return; }
+  const d=al.def;
+  let h='<div class="dh"><h3>'+esc(d.label)+'</h3><div class="meta">'+esc(d.equip)+' \u2022 '+esc(d.loc)+' \u2022 building system priority: '+d.bms+(d.floor!=null?' \u2022 floor: '+RNAME[d.floor]:'')+'</div>';
+  if(d.lifeSafety){
+    h+='<div class="final"><span class="chip ls">Passed through</span><span>Life-safety alarms bypass the pipeline and go to the fire alarm system unchanged.</span></div></div>';
+    el.innerHTML=h; return;
+  }
+  if(al.status==="settling"){
+    h+='<div class="final"><span class="chip pending">Settling</span><span>Waiting '+SETTLE+' s so related alarms can arrive and be judged together. Categories with a floor skip this wait.</span></div></div>';
+    el.innerHTML=h; return;
+  }
+  h+='<div class="final">'+(al.status==="cleared"?'<span class="chip clr">Cleared</span>':chip(al.rank))+'<span>'+(al.status==="cleared"?"Returned to normal at "+clockStr(al.clearedAt).slice(4):CHANNEL[al.rank]+(al.team?", "+esc(al.team):""))+'</span>'+(al.parent?'<span class="note">Grouped under: '+esc(titleOf(al.parent))+'</span>':'')+'</div>';
+  const kids=children(selected);
+  if(kids.length) h+='<ul class="members">'+kids.map(k=>{const a=st.alarms[k];return '<li><button type="button" class="mem" data-sel="'+k+'">'+esc(a.def.label)+'</button>'+(a.status==="cleared"?'<span class="chip clr">Cleared</span>':chip(a.rank))+'</li>';}).join("")+'</ul>';
+  h+='</div>';
+  h+=al.evals.slice().reverse().map(evalHTML).join("");
+  el.innerHTML=h;
+  bindMembers(el);
+}
+function bindMembers(el){ el.querySelectorAll(".mem").forEach(b=>b.onclick=()=>{ selected=b.dataset.sel; render(); }); }
+
+/* ---------------- Controls ---------------- */
+function tick(){ const sp=+$("speed").value; advance(st.now+sp*0.25); render(); }
+function play(){ if(st.ended) return; if(timer) return stop(), render(); timer=setInterval(tick,250); render(); }
+function stop(){ if(timer){ clearInterval(timer); timer=null; } }
+$("play").onclick=play;
+$("step").onclick=()=>{ stop(); advance(nextTime()); render(); };
+$("reset").onclick=reset;
+offlineEl.onchange=()=>render();
+mistakeEl.onchange=()=>reset();
+document.addEventListener("keydown",e=>{ if(e.target.classList && e.target.classList.contains("ack") && (e.key==="Enter"||e.key===" ")){ e.preventDefault(); e.target.click(); } });
+
+sc=SCENARIOS[0];
+renderScenarios(); updateToggles(); reset();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,58 @@
+# Jev Alarm Triage configuration. Thresholds and floors live here so the team
+# can tune them without touching code (spec sections 4 and 7).
+
+building:
+  name: "Harbor Point, Building A"
+  subtitle: "Office and data room, 4 floors"
+
+jev:
+  model: "jev-1.13.0"        # pinned for evaluations; "jev-latest" follows new releases
+  timeout_s: 2.0             # any slower answer falls back to the BMS priority
+  price_per_mtok: 0.042      # USD per million input tokens; output tokens are free
+  recordings: "backend/recordings.json"
+
+thresholds:
+  downgrade_min_severity_conf: 0.90
+  downgrade_min_p_history: 0.85
+  review_below_conf: 0.60
+  team_min_conf: 0.70
+  group_min_p: 0.80
+
+timing:
+  settle_s: 30
+  escalate_urgent_after_s: 300
+  candidate_lookback_min: 30
+  max_candidates: 8
+  reeval_checks_s: [300, 900]    # scheduled re-evaluations after arrival
+  reeval_debounce_s: 60          # minimum gap between re-evaluations of one alarm
+  trend_check_s: 60
+  chatter_window_min: 10         # repeated triggers of one point within this window merge
+  burst_min_alarms: 5            # this many alarms within burst_window_s count as a burst
+  burst_window_s: 120
+  schedule_window_min: 15        # a schedule event is listed as a candidate for this long
+
+# Minimum rank per category; Jev can never go below it.
+# Ranks: 4 critical, 3 urgent, 2 needs review, 1 routine, 0 informational.
+floors:
+  server_room_temp: {rank: 3, name: "server room temperature"}
+  water_leak:       {rank: 3, name: "water leaks"}
+  elevator:         {rank: 3, name: "elevators (people may be trapped)"}
+  freezer:          {rank: 3, name: "lab and medicine freezers"}
+
+# Categories that bypass the pipeline entirely.
+life_safety_categories: [fire]
+
+fallback_team: "Facilities desk"
+
+teams:
+  HVAC: "Heating, ventilation and air conditioning: chillers, pumps, air handlers, VAV boxes, cooling units"
+  Electrical: "Power supply: switchboards, UPS, generators, lighting and lighting controllers"
+  Plumbing: "Water supply, drainage and water leaks"
+  IT: "Server room environment and IT equipment"
+  Controls: "Building automation field controllers and their communication network"
+  Security: "Access control, doors, intrusion detection and CCTV"
+  Elevator vendor: "Elevators and lifts"
+
+schedule:
+  hvac_startup: {days: [Mon, Tue, Wed, Thu, Fri], at: "06:00", title: "HVAC morning startup"}
+  occupied: {days: [Mon, Tue, Wed, Thu, Fri], from: "07:00", to: "19:00"}

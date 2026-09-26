@@ -1,0 +1,37 @@
+id: leak
+name: Water leak
+short: Jev can get it wrong
+start: "2026-09-15T10:20:00"
+duration_s: 480
+weather: "sunny, 23 °C outside"
+desc: >-
+  Tuesday 10:20. A basement leak sensor, silent for 12 months, triggers three times. Turn on
+  'Inject a Jev mistake' to replace Jev's answer with a wrong one (routine, confidence 0.72): the downgrade
+  bar blocks it, the water-leak floor keeps it urgent, and if nobody acknowledges within five minutes it
+  escalates to critical on its own.
+
+events:
+  - {t: 0, alarm: WL-B2}
+  - {t: 40, clear: WL-B2}
+  - {t: 40, alarm: RM-4-2.T, value: 25.6, limit: 25, unit: "°C", measure: "room temperature"}
+  - {t: 90, alarm: WL-B2}
+  - {t: 120, alarm: AHU-2.DP, value: 285, limit: 280, unit: "Pa", measure: "filter differential pressure"}
+  - {t: 130, clear: WL-B2}
+  - {t: 200, alarm: WL-B2}
+  - {t: 260, alarm: EF-K.RT, value: 1500, limit: 1500, unit: "h", measure: "runtime since last service"}
+
+trends:
+  AHU-2.DP: {step_s: 21600, window_min: 30240, unit: "Pa", points: [[-1814400, 240], [120, 285]]}
+
+# Injected wrong answer for the safety demo (spec scenario 4). Replaces Jev's reply for this point.
+mistake:
+  point: WL-B2
+  answers:
+    severity: {choice: routine, confidence: 0.72}
+    team: {choice: Plumbing, confidence: 0.90}
+    history: 0.68
+    same_cause: {choice: none, p: 0.9}
+    wait: 0.60
+    impact: {score: 1.0, confidence: 0.7}
+
+labels: {}

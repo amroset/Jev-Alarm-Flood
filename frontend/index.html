@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Jev Alarm Triage</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Semi+Condensed:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#DCDDD9; --panel:#EEEEEA; --panel2:#E4E5E1; --ink:#1E2226; --muted:#5B6168; --line:#C2C4C0;
+  --crit:#C4122F; --urg:#D98E04; --rev:#A3148C; --routine:#48525B; --ok:#2F6B4F; --focus:#1B5FD1;
+  --ff:"Barlow",system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
+  --ffc:"Barlow Semi Condensed","Barlow",system-ui,-apple-system,"Segoe UI",Arial,sans-serif;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#25282B; --panel:#2F3236; --panel2:#373B3F; --ink:#E7E8E5; --muted:#A3A8AD; --line:#474B50;
+    --crit:#FF4D5E; --urg:#F2B233; --rev:#E563D5; --routine:#B4BBC2; --ok:#6FC39A; --focus:#7AA7FF;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#25282B; --panel:#2F3236; --panel2:#373B3F; --ink:#E7E8E5; --muted:#A3A8AD; --line:#474B50;
+  --crit:#FF4D5E; --urg:#F2B233; --rev:#E563D5; --routine:#B4BBC2; --ok:#6FC39A; --focus:#7AA7FF;
+}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*,*::before,*::after{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--ff);font-size:15px;line-height:1.45;font-variant-numeric:tabular-nums}
+button,select,input{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.wrap{max-width:1480px;margin:0 auto;padding:18px 20px 40px}
+
+header.top{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px 24px;padding-bottom:14px;border-bottom:1px solid var(--line)}
+header.top h1{font-family:var(--ffc);font-weight:700;font-size:26px;line-height:1.1;margin:0;letter-spacing:.2px}
+header.top p{margin:4px 0 0;color:var(--muted);max-width:70ch}
+.bldg{font-family:var(--ffc);font-weight:600;color:var(--muted);text-align:right}
+.bldg strong{display:block;color:var(--ink);font-size:17px}
+
+.scenarios{display:flex;flex-wrap:wrap;gap:6px;margin:16px 0 10px}
+.scenarios button{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:8px 12px;cursor:pointer;text-align:left;min-width:180px}
+.scenarios button .s1{display:block;font-family:var(--ffc);font-weight:600;font-size:15px}
+.scenarios button .s2{display:block;color:var(--muted);font-size:13px}
+.scenarios button[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.scenarios button[aria-pressed="true"] .s2{color:var(--bg);opacity:.75}
+
+.controls{display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px;background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:10px 12px}
+.clock{font-family:var(--ffc);font-weight:700;font-size:22px;min-width:132px}
+.btn{background:var(--panel2);border:1px solid var(--line);border-radius:5px;padding:6px 12px;cursor:pointer;font-weight:600}
+.btn.primary{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.speed{display:flex;align-items:center;gap:6px;color:var(--muted)}
+.speed select{background:var(--panel2);border:1px solid var(--line);border-radius:5px;padding:5px 6px}
+.toggle{display:flex;align-items:center;gap:7px;cursor:pointer;user-select:none}
+.toggle input{width:17px;height:17px;accent-color:var(--ink)}
+.toggle.disabled{opacity:.45;cursor:not-allowed}
+.spacer{flex:1}
+.progress{height:4px;background:var(--line);border-radius:2px;overflow:hidden;width:100%;margin-top:2px}
+.progress div{height:100%;background:var(--ink);width:0}
+.desc{margin:12px 0 16px;max-width:95ch;color:var(--ink)}
+.note{color:var(--muted);font-size:13px}
+
+.grid{display:grid;grid-template-columns:minmax(230px,.8fr) minmax(300px,1.05fr) minmax(360px,1.4fr);gap:14px;align-items:start}
+@media (max-width:1100px){.grid{grid-template-columns:1fr 1fr}.detail{grid-column:1 / -1}}
+@media (max-width:720px){.grid{grid-template-columns:1fr}}
+.col{background:var(--panel);border:1px solid var(--line);border-radius:6px;min-width:0}
+.col > .head{padding:12px 14px 10px;border-bottom:1px solid var(--line)}
+.col h2{font-family:var(--ffc);font-weight:700;font-size:18px;margin:0}
+.col .sub{color:var(--muted);font-size:13px;margin-top:1px}
+.scroll{max-height:68vh;overflow:auto}
+@media (max-width:720px){.scroll{max-height:none}}
+
+/* raw feed: deliberately monotone */
+.feed{list-style:none;margin:0;padding:0}
+.feed li{display:grid;grid-template-columns:62px 1fr auto;gap:8px;padding:7px 14px;border-bottom:1px solid var(--line);font-size:13.5px;color:var(--ink)}
+.feed li:last-child{border-bottom:0}
+.feed .t{color:var(--muted);font-family:var(--ffc);font-weight:600}
+.feed .p{font-family:var(--ffc);font-weight:600;color:var(--muted)}
+.feed .p.hi{color:var(--ink)}
+.feed li.fresh{background:var(--panel2)}
+.feed .ls{font-size:12px;color:var(--muted);display:block}
+.count{font-family:var(--ffc);font-weight:700}
+
+/* the one bold thing: the funnel statement */
+.funnel{padding:14px 14px 12px;border-bottom:1px solid var(--line)}
+.funnel .big{font-family:var(--ffc);font-weight:700;font-size:30px;line-height:1.1}
+.funnel .big .n{font-size:44px}
+.funnel .big .arrow{color:var(--muted);font-weight:500;margin:0 6px}
+.funnel .row{display:flex;flex-wrap:wrap;gap:4px 16px;color:var(--muted);font-size:13px;margin-top:6px}
+
+.qsec{padding:8px 14px 4px;font-family:var(--ffc);font-weight:600;color:var(--muted);font-size:14px}
+.items{list-style:none;margin:0;padding:0 10px 10px}
+.item{background:var(--panel2);border:1px solid var(--line);border-left:6px solid var(--line);border-radius:5px;margin:6px 0}
+.item .sel{display:block;width:100%;text-align:left;background:none;border:0;padding:9px 10px 4px;cursor:pointer}
+.item .sel:only-child{padding-bottom:9px}
+.item.current{outline:2px solid var(--ink);outline-offset:0}
+.item .acts{padding:0 10px 9px}
+.item.r4{border-left-color:var(--crit)}
+.item.r3{border-left-color:var(--urg)}
+.item.r2{border-left-color:var(--rev)}
+.item.r1{border-left-color:var(--routine)}
+.item.r0{border-left-color:var(--line)}
+.item.ls{border-left-color:var(--ink);border-left-style:double}
+.item.pending{border-left-style:dashed;border-left-color:var(--muted)}
+.item.cleared{opacity:.7}
+.item .l1{display:flex;align-items:baseline;gap:8px;justify-content:space-between}
+.item .title{font-weight:600}
+.item .l2{color:var(--muted);font-size:13px;margin-top:2px}
+.item .acts{display:flex;gap:8px;align-items:center;margin-top:2px;flex-wrap:wrap}
+.chip{display:inline-block;font-family:var(--ffc);font-weight:700;font-size:12.5px;padding:1px 8px;border-radius:3px;white-space:nowrap;border:1px solid transparent}
+.chip.r4{background:var(--crit);color:#fff}
+.chip.r3{background:var(--urg);color:#1E2226}
+.chip.r2{border:2px solid var(--rev);color:var(--rev);padding:0 7px}
+.chip.r1{border-color:var(--routine);color:var(--routine)}
+.chip.r0{color:var(--muted);border-color:var(--line)}
+.chip.pending{border:1px dashed var(--muted);color:var(--muted)}
+.chip.ls{background:var(--ink);color:var(--bg)}
+.chip.clr{color:var(--ok);border-color:var(--ok)}
+.ack{background:transparent;border:1px solid var(--ink);border-radius:4px;padding:2px 9px;font-size:13px;font-weight:600;cursor:pointer}
+.acked{font-size:13px;color:var(--ok);font-weight:600}
+details.more{margin:4px 10px 10px}
+details.more summary{cursor:pointer;font-family:var(--ffc);font-weight:600;color:var(--muted);padding:4px 4px}
+.empty{padding:14px;color:var(--muted)}
+
+/* detail */
+.detail .body{padding:12px 14px 16px}
+.dh h3{font-family:var(--ffc);font-weight:700;font-size:21px;margin:0}
+.dh .meta{color:var(--muted);font-size:13.5px;margin-top:3px}
+.dh .final{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;margin:10px 0 4px}
+.ev{border-top:1px solid var(--line);padding-top:12px;margin-top:14px}
+.evh{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}
+.evh .t{font-family:var(--ffc);font-weight:700}
+.evh .why{font-weight:600}
+.evg{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:10px}
+@media (max-width:560px){.evg{grid-template-columns:1fr}}
+.box{background:var(--panel2);border:1px solid var(--line);border-radius:5px;padding:10px 11px}
+.box h4{margin:0 0 6px;font-family:var(--ffc);font-weight:700;font-size:14.5px}
+.box.wide{grid-column:1 / -1}
+.state{margin:0;padding-left:16px;font-size:13.5px}
+.state li{margin:2px 0}
+.ans{display:grid;grid-template-columns:minmax(110px,auto) 1fr 44px;gap:5px 8px;align-items:center;font-size:13.5px}
+.ans .k{color:var(--muted)}
+.ans .v{font-weight:600;overflow-wrap:anywhere}
+.ans .bar{grid-column:2 / 3;height:6px;background:var(--line);border-radius:3px;overflow:hidden}
+.ans .bar div{height:100%;background:var(--ink)}
+.ans .num{font-family:var(--ffc);font-weight:600;text-align:right}
+.lat{margin:8px 0 0;font-size:12.5px;color:var(--muted)}
+.steps{margin:0;padding-left:20px;font-size:13.5px}
+.steps li{margin:3px 0}
+.steps li.block{color:var(--ink)}
+.steps .tag{font-family:var(--ffc);font-weight:700;font-size:12px;padding:0 5px;border-radius:3px;margin-right:4px;border:1px solid var(--line)}
+.steps .tag.stop{border-color:var(--ink)}
+.members{list-style:none;margin:8px 0 0;padding:0;font-size:13.5px}
+.members li{display:flex;justify-content:space-between;gap:10px;padding:5px 0;border-bottom:1px solid var(--line)}
+.members li:last-child{border-bottom:0}
+.mem{background:none;border:0;padding:0;text-align:left;cursor:pointer;text-decoration:underline;text-decoration-color:var(--line);text-underline-offset:3px}
+.intro h3{font-family:var(--ffc);font-weight:700;font-size:19px;margin:0 0 6px}
+.intro p{margin:0 0 10px;max-width:70ch}
+.legend{display:grid;grid-template-columns:auto 1fr;gap:6px 10px;align-items:center;font-size:13.5px;margin-top:6px}
+footer{margin-top:18px;color:var(--muted);font-size:13px;max-width:95ch}
+@media (prefers-reduced-motion:no-preference){
+  .feed li.fresh{transition:background .6s}
+}
+.mode select{background:var(--panel2);border:1px solid var(--line);border-radius:5px;padding:5px 6px}
+.status{font-size:13px;color:var(--muted)}
+.status b{color:var(--ink)}
+.src{font-family:var(--ffc);font-weight:700;font-size:11.5px;border:1px solid var(--line);border-radius:3px;padding:0 5px;margin-left:6px;color:var(--muted)}
+.src.injected{border-color:var(--crit);color:var(--crit)}
+.state h5{margin:6px 0 2px;font-family:var(--ffc);font-weight:700;font-size:13px;color:var(--muted)}
+.state h5:first-child{margin-top:0}
+.state ul{margin:0;padding-left:16px}
+.err{color:var(--crit);font-size:12.5px;margin:6px 0 0}
+.conn{position:fixed;bottom:12px;right:12px;background:var(--crit);color:#fff;padding:6px 10px;border-radius:5px;font-weight:600;display:none}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div>
+      <h1>Alarm triage with Jev</h1>
+      <p>Every alarm is judged in context and routed. Nothing is deleted: dangerous categories have floors, uncertain answers go up, and unacknowledged alarms escalate on their own.</p>
+    </div>
+    <div class="bldg"><strong id="bldgName">Building</strong><span id="bldgSub"></span></div>
+  </header>
+
+  <div class="scenarios" id="scenarios" role="group" aria-label="Scenario"></div>
+
+  <div class="controls">
+    <div>
+      <div class="clock" id="clock">--</div>
+      <div class="progress" aria-hidden="true"><div id="prog"></div></div>
+    </div>
+    <button class="btn primary" id="play">Play</button>
+    <button class="btn" id="step">Next event</button>
+    <button class="btn" id="reset">Restart</button>
+    <label class="speed">Speed
+      <select id="speed">
+        <option value="5">Slow</option>
+        <option value="10">Normal</option>
+        <option value="30">Fast</option>
+      </select>
+    </label>
+    <label class="speed mode">Jev answers
+      <select id="mode">
+        <option value="live">Live API</option>
+        <option value="replay">Replay recorded</option>
+      </select>
+    </label>
+    <span class="spacer"></span>
+    <label class="toggle"><input type="checkbox" id="offline"> Simulate Jev outage</label>
+    <label class="toggle" id="mistakeWrap"><input type="checkbox" id="mistake"> Inject a Jev mistake</label>
+  </div>
+  <p class="status" id="status"></p>
+
+  <p class="desc" id="desc"></p>
+
+  <div class="grid">
+    <section class="col" aria-labelledby="feedH">
+      <div class="head">
+        <h2 id="feedH">Raw alarm feed <span class="count" id="feedCount">0</span></h2>
+        <div class="sub">What the building system shows operators today</div>
+      </div>
+      <div class="scroll"><ul class="feed" id="feed"></ul><div class="empty" id="feedEmpty">No alarms yet. Press Play.</div></div>
+    </section>
+
+    <section class="col" aria-labelledby="qH">
+      <div class="head">
+        <h2 id="qH">Triaged queue</h2>
+        <div class="sub">What operators see with Jev in the loop</div>
+      </div>
+      <div class="funnel" aria-live="polite">
+        <div class="big" id="funnelBig"><span class="n">0</span> alarms</div>
+        <div class="row" id="funnelRow"></div>
+      </div>
+      <div class="scroll" id="queue"></div>
+    </section>
+
+    <section class="col detail" aria-labelledby="dH">
+      <div class="head">
+        <h2 id="dH">How the decision was made</h2>
+        <div class="sub">Facts computed by code, Jev's answers, and the policy that turns them into an action</div>
+      </div>
+      <div class="scroll"><div class="body" id="detail"></div></div>
+    </section>
+  </div>
+
+  <footer>
+    Jev answers come from the live TypeSafe API (or a recording of earlier live answers in replay mode). The state Jev reads is built by code from the building catalog, alarm history, trends and schedule, and contains facts only. The policy, floors, grouping, fallback and escalation rules run in the backend. Cost uses the published $0.042 per million input tokens and the token counts the API reports.
+  </footer>
+</div>
+<div class="conn" id="conn">Disconnected from backend, retrying…</div>
+
+<script>
+(function(){
+"use strict";
+const RNAME=["Informational","Routine","Needs review","Urgent","Critical"];
+let CHANNEL=["Morning digest","Operator queue","Top of queue for review","Notified on-shift team","Paged on-call"];
+let S=null, selected=null, ws=null;
+const $=id=>document.getElementById(id);
+
+function send(m){ if(ws && ws.readyState===1) ws.send(JSON.stringify(m)); }
+function connect(){
+  ws=new WebSocket((location.protocol==="https:"?"wss://":"ws://")+location.host+"/ws");
+  ws.onopen=()=>{ $("conn").style.display="none"; };
+  ws.onmessage=e=>{
+    S=JSON.parse(e.data); CHANNEL=S.channels||CHANNEL;
+    if(selected && !S.alarms[selected] && !S.incidents[selected]) selected=null;
+    render();
+  };
+  ws.onclose=()=>{ $("conn").style.display="block"; setTimeout(connect,1000); };
+}
+
+function esc(s){return String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));}
+function pct(x){return (x==null?0:x).toFixed(2);}
+function hhmmss(clock){return clock.slice(4);}
+function clockAt(t){ // scenario clock for a sim time, derived from the current clock
+  const base=S.clock.split(" "), [h,m,s]=base[1].split(":").map(Number);
+  let tot=h*3600+m*60+s+Math.round(t-S.now); tot=((tot%86400)+86400)%86400;
+  const p=n=>String(n).padStart(2,"0");
+  return p(Math.floor(tot/3600))+":"+p(Math.floor(tot%3600/60))+":"+p(tot%60);
+}
+function titleOf(id){
+  if(S.incidents[id]) return S.incidents[id].title;
+  if(S.alarms[id]) return S.alarms[id].def.label;
+  return id;
+}
+function chip(rank,extra){ if(rank==null) return ""; return '<span class="chip r'+rank+'">'+RNAME[rank]+(extra||"")+'</span>'; }
+
+/* ---------------- Items ---------------- */
+function children(id){return S.order.filter(k=>S.alarms[k].parent===id && S.alarms[k].status!=="settling");}
+function openKids(id){return children(id).filter(k=>S.alarms[k].status==="active");}
+function majorityTeam(ids){const c={};ids.forEach(k=>{const t=S.alarms[k].team;if(t)c[t]=(c[t]||0)+1;});return Object.keys(c).sort((a,b)=>c[b]-c[a])[0]||"";}
+function buildItems(){
+  const out={ls:[],pending:[],main:[],digest:[],cleared:[]};
+  for(const incId of Object.keys(S.incidents)){
+    const kids=children(incId); if(!kids.length) continue;
+    const open=openKids(incId);
+    const rank=open.length?Math.max(...open.map(k=>S.alarms[k].rank)):null;
+    const it={type:"incident",id:incId,rank,kids,open,title:S.incidents[incId].title,team:majorityTeam(kids),since:Math.min(...kids.map(k=>S.alarms[k].arrivedAt))};
+    if(open.length) (rank===0?out.digest:out.main).push(it); else out.cleared.push(it);
+  }
+  for(const id of S.order){
+    const al=S.alarms[id];
+    if(al.status==="bypass"){ out.ls.push({type:"ls",id,al}); continue; }
+    if(al.status==="settling"){ out.pending.push({type:"pending",id,al}); continue; }
+    if(al.parent || al.def.lifeSafety) continue;
+    const kids=children(id), open=openKids(id);
+    const ranks=open.map(k=>S.alarms[k].rank); if(al.status==="active") ranks.push(al.rank);
+    const it={type:"alarm",id,al,kids,open,rank:ranks.length?Math.max(...ranks):null,title:al.def.label,team:al.team,since:al.arrivedAt};
+    if(ranks.length) (it.rank===0?out.digest:out.main).push(it); else out.cleared.push(it);
+  }
+  out.main.sort((a,b)=>b.rank-a.rank||a.since-b.since);
+  out.cleared.sort((a,b)=>b.since-a.since);
+  return out;
+}
+
+/* ---------------- Render ---------------- */
+function renderScenarios(){
+  $("scenarios").innerHTML=S.scenarios.map(s=>'<button type="button" data-id="'+s.id+'" aria-pressed="'+(s.id===S.scenario.id)+'"><span class="s1">'+esc(s.name)+'</span><span class="s2">'+esc(s.short)+'</span></button>').join("");
+  $("scenarios").querySelectorAll("button").forEach(b=>b.onclick=()=>{ selected=null; send({type:"scenario",id:b.dataset.id}); });
+}
+
+function render(){
+  $("bldgName").textContent=S.building.name; $("bldgSub").textContent=S.building.subtitle;
+  renderScenarios();
+  $("clock").textContent=S.clock;
+  $("prog").style.width=(100*S.now/S.scenario.duration)+"%";
+  $("desc").textContent=S.scenario.desc;
+  $("play").textContent= S.playing? "Pause" : (S.ended? "Finished" : (S.now>0? "Resume":"Play"));
+  $("play").disabled=S.ended; $("step").disabled=S.ended;
+  $("speed").value=String(S.speed);
+  $("mode").value=S.mode; $("mode").querySelector('[value="live"]').disabled=!S.liveAvailable;
+  $("offline").checked=S.offline; $("mistake").checked=S.mistake;
+  $("mistake").disabled=!S.scenario.hasMistake; $("mistakeWrap").classList.toggle("disabled",!S.scenario.hasMistake);
+  $("mistakeWrap").title=S.scenario.hasMistake?"":"Available in the Water leak scenario";
+  $("status").innerHTML="Model <b>"+esc(S.model)+"</b> · "+(S.offline?"<b>outage simulated</b>, building-system priorities in use":(S.mode==="live"?"live API calls":"replaying recorded live answers"))+(S.liveAvailable?"":" · no API key configured");
+
+  const arrived=S.order.length;
+  $("feedCount").textContent=S.feed.filter(f=>f.kind==="alarm").length;
+  $("feedEmpty").style.display=S.feed.length?"none":"block";
+  $("feed").innerHTML=S.feed.map(f=>{
+    const d=S.alarms[f.id].def; const fresh=S.now-f.t<3; const cls=fresh?"fresh":"";
+    if(f.kind==="clear") return '<li class="'+cls+'"><span class="t">'+hhmmss(f.clock)+'</span><span>'+esc(d.label)+'<span class="ls">Returned to normal</span></span><span class="p">Clear</span></li>';
+    const sub=d.lifeSafety?'<span class="ls">Life-safety system</span>':(f.kind==="retrigger"?'<span class="ls">Triggered again ('+f.count+')</span>':'');
+    return '<li class="'+cls+'"><span class="t">'+hhmmss(f.clock)+'</span><span>'+esc(d.label)+sub+'</span><span class="p'+(d.bms==="High"?" hi":"")+'">'+d.bms+'</span></li>';
+  }).join("");
+
+  const items=buildItems();
+  const needPerson=items.main.filter(i=>i.rank>=2).length + items.ls.length;
+  const openAlarms=S.order.filter(id=>["active","settling","bypass"].includes(S.alarms[id].status)).length;
+  const grouped=S.order.filter(id=>S.alarms[id].parent && S.alarms[id].status==="active").length;
+  $("funnelBig").innerHTML='<span class="n">'+arrived+'</span> alarm'+(arrived===1?"":"s")+'<span class="arrow">to</span><span class="n">'+needPerson+'</span> for a person now';
+  const st=S.stats;
+  $("funnelRow").innerHTML=[
+    openAlarms+" still active",
+    grouped+" grouped under a cause",
+    items.digest.length+" in the morning digest",
+    st.jev_calls+" Jev decisions"+(st.jev_calls?", avg "+Math.round(st.lat_sum/st.jev_calls)+" ms":""),
+    st.fallbacks? st.fallbacks+" fallbacks":null,
+    "cost $"+st.cost.toFixed(5)
+  ].filter(Boolean).map(s=>"<span>"+s+"</span>").join("");
+
+  let q="";
+  if(items.ls.length) q+='<div class="qsec">Life-safety system, not triaged</div><ul class="items">'+items.ls.map(i=>itemHTML(i)).join("")+'</ul>';
+  if(items.pending.length) q+='<div class="qsec">Collecting related alarms ('+S.settle+' s window)</div><ul class="items">'+items.pending.map(i=>itemHTML(i)).join("")+'</ul>';
+  q+='<div class="qsec">Queue</div>';
+  q+= items.main.length? '<ul class="items">'+items.main.map(i=>itemHTML(i)).join("")+'</ul>' : '<div class="empty">'+(arrived?"Nothing needs the queue right now.":"Waiting for alarms.")+'</div>';
+  if(items.digest.length) q+='<details class="more" data-k="digest"><summary>Morning digest ('+items.digest.length+')</summary><ul class="items" style="padding:0">'+items.digest.map(i=>itemHTML(i)).join("")+'</ul></details>';
+  if(items.cleared.length) q+='<details class="more" data-k="cleared"><summary>Cleared ('+items.cleared.length+')</summary><ul class="items" style="padding:0">'+items.cleared.map(i=>itemHTML(i,true)).join("")+'</ul></details>';
+  const qs=$("queue"); const sTop=qs.scrollTop;
+  const openDetails=[...qs.querySelectorAll("details[open]")].map(d=>d.dataset.k);
+  qs.innerHTML=q; qs.scrollTop=sTop;
+  openDetails.forEach(k=>{const d=qs.querySelector('details[data-k="'+k+'"]'); if(d) d.open=true;});
+  qs.querySelectorAll("[data-sel]").forEach(b=>b.onclick=()=>{ selected=b.dataset.sel; render(); });
+  qs.querySelectorAll("[data-ack]").forEach(b=>b.onclick=()=>send({type:"ack",id:b.dataset.ack}));
+  renderDetail();
+}
+
+function itemHTML(i,cleared){
+  const cur=selected===i.id?" current":"";
+  const selAttr=' data-sel="'+esc(i.id)+'"'+(selected===i.id?' aria-current="true"':'');
+  if(i.type==="ls") return '<li class="item ls'+cur+'"><button type="button" class="sel"'+selAttr+'><div class="l1"><span class="title">'+esc(i.al.def.label)+'</span><span class="chip ls">Passed through</span></div><div class="l2">Handled by the fire alarm system exactly as today</div></button></li>';
+  if(i.type==="pending"){
+    const left=Math.max(0,Math.ceil((i.al.settleDue||S.now)-S.now));
+    return '<li class="item pending'+cur+'"><button type="button" class="sel"'+selAttr+'><div class="l1"><span class="title">'+esc(i.al.def.label)+'</span><span class="chip pending">Settling '+left+' s</span></div><div class="l2">'+esc(i.al.def.loc)+'</div></button></li>';
+  }
+  const al=i.al;
+  const rankCls = cleared? "cleared" : "r"+i.rank;
+  const l2=[];
+  if(i.type==="incident"){ l2.push(i.kids.length+" related alarms, "+(i.kids.length-i.open.length)+" cleared"); if(i.team) l2.push(i.team); }
+  else {
+    if(al.status==="cleared" && i.open.length) l2.push("Cleared, "+i.open.length+" related still active");
+    else if(i.kids.length) l2.push(i.kids.length+" related alarm"+(i.kids.length>1?"s":"")+", "+(i.kids.length-i.open.length)+" cleared");
+    l2.push(al.def.loc);
+    if(al.team) l2.push(al.team);
+    if(al.link) l2.push("Probably caused by: "+titleOf(al.link));
+    if(al.count>1) l2.push("Triggered "+al.count+" times");
+  }
+  let acts="";
+  if(!cleared && i.rank!=null){
+    let ack="";
+    if(i.type==="alarm" && al.status==="active" && i.rank>=3) ack = al.acked? '<span class="acked">Acknowledged</span>' : '<button type="button" class="ack" data-ack="'+esc(i.id)+'">Acknowledge</button>';
+    acts='<div class="acts"><span class="note">'+CHANNEL[i.rank]+'</span>'+ack+'</div>';
+  }
+  const ch = cleared? '<span class="chip clr">Cleared</span>' : chip(i.rank, (al&&al.escalated&&i.type==="alarm")?", escalated":"");
+  return '<li class="item '+rankCls+cur+'"><button type="button" class="sel"'+selAttr+'><div class="l1"><span class="title">'+esc(i.title)+'</span>'+ch+'</div><div class="l2">'+esc(l2.join(" · "))+'</div></button>'+acts+'</li>';
+}
+
+function ansRow(k,v,p){
+  return '<span class="k">'+k+'</span><span class="v">'+esc(v)+'</span><span></span>'+(p==null?'':'<span class="bar" aria-hidden="true" style="grid-column:1 / 3"><div style="width:'+Math.round(p*100)+'%"></div></span><span class="num">'+pct(p)+'</span>');
+}
+function evalHTML(e){
+  let h='<div class="ev"><div class="evh"><span class="t">'+clockAt(e.t)+'</span><span class="why">'+esc(e.reason)+'</span>'+chip(e.rank)+'</div>';
+  if(e.kind==="escalation"||e.kind==="ack"){
+    return h+'<div class="evg"><div class="box wide"><h4>Policy in code</h4><ol class="steps">'+e.steps.map(s=>'<li>'+esc(s.t)+'</li>').join("")+'</ol></div></div></div>';
+  }
+  h+='<div class="evg">';
+  h+='<div class="box"><h4>What Jev reads</h4><div class="state">'+(e.state||[]).map(sec=>'<h5>'+esc(sec.title)+'</h5><ul>'+sec.items.map(x=>'<li>'+esc(x)+'</li>').join("")+'</ul>').join("")+'</div></div>';
+  const j=e.jev;
+  h+='<div class="box"><h4>Jev’s answers'+(j?'<span class="src '+j.source+'">'+({live:"live",replay:"replayed",injected:"injected mistake"}[j.source])+'</span>':'')+'</h4>';
+  if(j){
+    const same = !j.same_offered ? "no candidates offered" : (j.same_target ? ((e.candidates&&e.candidates[j.same_target])||titleOf(j.same_target)) : "none of these");
+    h+='<div class="ans">'+
+      ansRow("Severity",RNAME[{informational:0,routine:1,urgent:3,critical:4}[j.severity]],j.sev_conf)+
+      ansRow("Team",j.team,j.team_conf)+
+      ansRow("Matches its history","yes",j.p_history)+
+      ansRow("Same cause as",same,j.same_offered?j.same_p:null)+
+      ansRow("Can wait until tomorrow","yes",j.p_wait)+
+      ansRow("Impact",j.impact.toFixed(1)+" of 5",(j.impact-1)/4)+
+      '</div>';
+    const lat = j.source==="live" ? "One request, six questions, answered live in "+j.latency_ms+" ms by "+esc(j.model||S.model)+" ("+j.tokens+" input tokens)."
+      : j.source==="replay" ? "Replayed from a recording of a live call ("+(j.latency_ms||"?")+" ms originally)."
+      : "Scripted wrong answer injected for the safety demo; not a real Jev output.";
+    h+='<p class="lat">'+lat+' Severity and team show confidence; the others show probability.</p>';
+  } else {
+    h+='<p class="note" style="margin:0">No answer: Jev was unavailable for this decision.</p>'+(e.error?'<p class="err">'+esc(e.error)+'</p>':'');
+  }
+  h+='</div>';
+  h+='<div class="box wide"><h4>Policy in code</h4><ol class="steps">'+e.steps.map(s=>'<li>'+(s.stop?'<span class="tag stop">Rule applied</span>':'')+esc(s.t)+'</li>').join("")+'</ol>';
+  h+='<p class="lat" style="margin-top:8px">Result: '+RNAME[e.rank]+', '+CHANNEL[e.rank].toLowerCase()+(e.team?", "+esc(e.team):"")+'.</p></div>';
+  return h+'</div></div>';
+}
+function memberList(kids){
+  return '<ul class="members">'+kids.map(k=>{const a=S.alarms[k];return '<li><button type="button" class="mem" data-sel="'+esc(k)+'">'+esc(a.def.label)+'</button>'+(a.status==="cleared"?'<span class="chip clr">Cleared</span>':chip(a.rank))+'</li>';}).join("")+'</ul>';
+}
+function renderDetail(){
+  const el=$("detail");
+  if(!selected){
+    el.innerHTML='<div class="intro"><h3>Select an item in the queue</h3><p>Each decision shows three things: the facts code computed from the building system and its history, the answers Jev gave to six typed questions, and the rules in code that turned those answers into a priority and a channel.</p>'+
+      '<p>Colour is reserved for priority, following control-room display practice: everything normal stays grey.</p><div class="legend">'+
+      [4,3,2,1,0].map(r=>chip(r)+'<span>'+CHANNEL[r]+'</span>').join("")+
+      '<span class="chip ls">Passed through</span><span>Life-safety systems are never triaged</span></div></div>';
+    return;
+  }
+  if(S.incidents[selected]){
+    const inc=S.incidents[selected];
+    el.innerHTML='<div class="dh"><h3>'+esc(inc.title)+'</h3><div class="meta">Created by code from the building schedule. Alarms join it only when Jev links them with probability ≥ 0.80.</div></div>'+
+      memberList(children(selected))+'<p class="note">Each member was judged individually; select one to see its decision.</p>';
+    bindMembers(el); return;
+  }
+  const al=S.alarms[selected]; if(!al){ el.innerHTML=""; return; }
+  const d=al.def;
+  let h='<div class="dh"><h3>'+esc(d.label)+'</h3><div class="meta">'+esc(d.equip)+' · '+esc(d.loc)+' · building system priority: '+d.bms+(d.floor!=null?' · floor: '+RNAME[d.floor]:'')+'</div>';
+  if(d.lifeSafety){
+    el.innerHTML=h+'<div class="final"><span class="chip ls">Passed through</span><span>Life-safety alarms bypass the pipeline and go to the fire alarm system unchanged.</span></div></div>'; return;
+  }
+  if(al.status==="settling"){
+    el.innerHTML=h+'<div class="final"><span class="chip pending">Settling</span><span>Waiting '+S.settle+' s so related alarms can arrive and be judged together. Categories with a floor skip this wait.</span></div></div>'; return;
+  }
+  h+='<div class="final">'+(al.status==="cleared"?'<span class="chip clr">Cleared</span>':chip(al.rank))+'<span>'+(al.status==="cleared"?"Returned to normal at "+clockAt(al.clearedAt):CHANNEL[al.rank]+(al.team?", "+esc(al.team):""))+'</span>'+(al.parent?'<button type="button" class="mem note" data-sel="'+esc(al.parent)+'">Grouped under: '+esc(titleOf(al.parent))+'</button>':'')+'</div>';
+  const kids=children(selected);
+  if(kids.length) h+=memberList(kids);
+  h+='</div>'+al.evals.slice().reverse().map(evalHTML).join("");
+  el.innerHTML=h; bindMembers(el);
+}
+function bindMembers(el){ el.querySelectorAll(".mem").forEach(b=>b.onclick=()=>{ selected=b.dataset.sel; render(); }); }
+
+/* ---------------- Controls ---------------- */
+$("play").onclick=()=>send({type:"play"});
+$("step").onclick=()=>send({type:"step"});
+$("reset").onclick=()=>{ selected=null; send({type:"reset"}); };
+$("speed").onchange=e=>send({type:"speed",value:+e.target.value});
+$("mode").onchange=e=>send({type:"mode",value:e.target.value});
+$("offline").onchange=e=>send({type:"offline",value:e.target.checked});
+$("mistake").onchange=e=>{ selected=null; send({type:"mistake",value:e.target.checked}); };
+const m=location.hash.match(/sel=([^&]+)/); if(m) selected=decodeURIComponent(m[1]);
+connect();
+})();
+</script>
+</body>
+</html>

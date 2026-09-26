@@ -1,0 +1,37 @@
+id: startup
+name: Monday startup
+short: 10 alarms in the first minute
+start: "2026-09-07T06:00:00"
+duration_s: 420
+weather: "clear, 12 °C outside"
+desc: >-
+  Monday 06:00. The HVAC schedule starts the building and 10 alarms arrive in the first minute.
+  Watch the usual startup noise get grouped and sent away from the operator, while the alarms that
+  break their own history stay in front of a person. Re-evaluation catches the air handler that does not settle.
+
+events:
+  - {t: 12, alarm: CH-2.CWF}
+  - {t: 15, alarm: AHU-1.SAT, value: 2.8, limit: 2.5, unit: "°C", measure: "supply air temperature above setpoint"}
+  - {t: 18, alarm: AHU-2.SAT, value: 3.0, limit: 2.5, unit: "°C", measure: "supply air temperature above setpoint"}
+  - {t: 20, alarm: VAV-2-07.DMP}
+  - {t: 22, alarm: AHU-3.SAT, value: 3.2, limit: 2.5, unit: "°C", measure: "supply air temperature above setpoint"}
+  - {t: 25, alarm: P-3.DP}
+  - {t: 27, alarm: AHU-4.SAT, value: 3.4, limit: 2.5, unit: "°C", measure: "supply air temperature above setpoint"}
+  - {t: 31, alarm: VAV-2-11.DMP}
+  - {t: 38, alarm: VAV-3-04.DMP}
+  - {t: 40, alarm: SR.T1, value: 27.3, limit: 27, unit: "°C", measure: "temperature"}
+  - {t: 120, clear: P-3.DP}
+  - {t: 130, clear: AHU-1.SAT}
+  - {t: 150, clear: AHU-2.SAT}
+  - {t: 160, clear: VAV-2-07.DMP}
+  - {t: 170, clear: VAV-2-11.DMP}
+  - {t: 180, clear: AHU-4.SAT}
+  - {t: 250, clear: CH-2.CWF}
+  - {t: 330, clear: SR.T1}
+
+trends:
+  SR.T1: {step_s: 30, window_min: 5, unit: "°C", points: [[-3600, 26.5], [-300, 26.5], [40, 27.3], [200, 27.4], [330, 26.9], [420, 26.6]]}
+  AHU-3.SAT: {step_s: 30, window_min: 5, unit: "°C", points: [[-60, 0.2], [22, 3.2], [180, 3.0], [420, 2.9]]}
+
+# Ground-truth labels for evaluation. Written by the team, never by an LLM (spec section 8).
+labels: {}

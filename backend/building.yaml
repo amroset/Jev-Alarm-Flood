@@ -1,0 +1,99 @@
+# Asset catalog for Harbor Point, Building A (spec stage 0).
+# In a real building this comes from the BMS and tagging standards (Haystack / Brick).
+#
+# point: alarm point id        equip: equipment id        zone: room-level location key
+# floor: B, 1-4, R (roof), P (parking)                     bms: the BMS's own priority
+# serves / fed_by: equipment ids or zone keys, used to find connected alarms
+# history: synthetic history profile used by seed.py (see seed.py for the patterns)
+
+assets:
+  # --- Plant and HVAC -------------------------------------------------------
+  - {point: CH-2.CWF, label: "Chiller 2: low condenser water flow", equip: CH-2, equip_label: "Chiller 2", loc: "Plant room, basement", zone: B-plant, floor: B, category: chiller, criticality: high, bms: High, serves: [CHW-LOOP], fed_by: [MSB-1],
+     history: {pattern: startup, hits: 18, of: 20, dur_min: [3, 10]}}
+  - {point: P-3.DP, label: "Pump P-3: differential pressure low", equip: P-3, equip_label: "Pump P-3", loc: "Plant room, basement", zone: B-plant, floor: B, category: pump, criticality: medium, bms: Low, serves: [CHW-LOOP], fed_by: [MSB-1],
+     history: {pattern: startup, hits: 16, of: 20, dur_min: [0.5, 2]}}
+  - {point: AHU-1.SAT, label: "AHU-1: supply air temperature deviation", equip: AHU-1, equip_label: "Air handler AHU-1", loc: "Roof, serves floor 1", zone: R-ahu1, floor: R, category: hvac_ahu, criticality: medium, bms: Medium, serves: [F1], fed_by: [MSB-1, CHW-LOOP],
+     history: {pattern: startup, hits: 13, of: 20, dur_min: [1, 3.67]}}
+  - {point: AHU-2.SAT, label: "AHU-2: supply air temperature deviation", equip: AHU-2, equip_label: "Air handler AHU-2", loc: "Roof, serves floor 2", zone: R-ahu2, floor: R, category: hvac_ahu, criticality: medium, bms: Medium, serves: [F2], fed_by: [MSB-1, CHW-LOOP],
+     history: {pattern: startup, hits: 14, of: 20, dur_min: [1, 3.67]}}
+  - {point: AHU-3.SAT, label: "AHU-3: supply air temperature deviation", equip: AHU-3, equip_label: "Air handler AHU-3", loc: "Roof, serves floor 3", zone: R-ahu3, floor: R, category: hvac_ahu, criticality: medium, bms: Medium, serves: [F3], fed_by: [MSB-1, CHW-LOOP],
+     history: {pattern: startup, hits: 15, of: 20, dur_min: [1, 3.67]}}
+  - {point: AHU-4.SAT, label: "AHU-4: supply air temperature deviation", equip: AHU-4, equip_label: "Air handler AHU-4", loc: "Roof, serves floor 4", zone: R-ahu4, floor: R, category: hvac_ahu, criticality: medium, bms: Medium, serves: [F4], fed_by: [MSB-1, CHW-LOOP],
+     history: {pattern: startup, hits: 16, of: 20, dur_min: [1, 3.67]}}
+  - {point: AHU-2.DP, label: "AHU-2: filter differential pressure high", equip: AHU-2, equip_label: "Air handler AHU-2", loc: "Roof, serves floor 2", zone: R-ahu2, floor: R, category: maintenance, criticality: low, bms: Low, serves: [F2], fed_by: [MSB-1, CHW-LOOP],
+     history: {pattern: none}}
+  - {point: AHU-4.DP, label: "AHU-4: filter differential pressure high", equip: AHU-4, equip_label: "Air handler AHU-4", loc: "Roof, serves floor 4", zone: R-ahu4, floor: R, category: maintenance, criticality: low, bms: Low, serves: [F4], fed_by: [MSB-1, CHW-LOOP],
+     history: {pattern: rare, days_ago: [140], dur_min: [600, 600], resolution: ticket}}
+  - {point: VAV-2-07.DMP, label: "VAV 2-07: damper not responding", equip: VAV-2-07, equip_label: "VAV box 2-07", loc: "Floor 2, open office", zone: F2-open, floor: 2, category: hvac_vav, criticality: low, bms: Medium, serves: [F2-open], fed_by: [AHU-2],
+     history: {pattern: startup, hits: 9, of: 20, dur_min: [1, 4]}}
+  - {point: VAV-2-11.DMP, label: "VAV 2-11: damper not responding", equip: VAV-2-11, equip_label: "VAV box 2-11", loc: "Floor 2, east side", zone: F2-east, floor: 2, category: hvac_vav, criticality: low, bms: Medium, serves: [F2-east], fed_by: [AHU-2],
+     history: {pattern: startup, hits: 7, of: 20, dur_min: [1, 4]}}
+  - {point: VAV-3-04.DMP, label: "VAV 3-04: damper not responding", equip: VAV-3-04, equip_label: "VAV box 3-04", loc: "Floor 3, meeting room 3.2", zone: F3-mr32, floor: 3, category: hvac_vav, criticality: low, bms: Medium, serves: [F3-mr32], fed_by: [AHU-3],
+     history: {pattern: none}}
+  - {point: RM-4-2.T, label: "Meeting room 4.2: temperature high", equip: RS-4-2, equip_label: "Room sensor 4.2", loc: "Floor 4, meeting room 4.2", zone: F4-mr42, floor: 4, category: room_temp, criticality: low, bms: Medium, serves: [], fed_by: [AHU-4],
+     attributes: "south-facing room with a glass facade",
+     history: {pattern: recurring, per_30d: 8, hours: [10, 13], weekdays_only: true, dur_min: [60, 150]}}
+  - {point: EF-P1.RT, label: "Parking exhaust fan EF-P1: runtime exceeded", equip: EF-P1, equip_label: "Exhaust fan EF-P1", loc: "Parking level", zone: P-exhaust, floor: P, category: maintenance, criticality: low, bms: Medium, serves: [P], fed_by: [MSB-1],
+     history: {pattern: rare, days_ago: [91, 182, 273], dur_min: [2880, 4320], resolution: ticket}}
+  - {point: EF-K.RT, label: "Kitchen exhaust fan EF-K: runtime reminder", equip: EF-K, equip_label: "Exhaust fan EF-K", loc: "Floor 1, kitchen", zone: F1-kitchen, floor: 1, category: maintenance, criticality: low, bms: Low, serves: [F1-kitchen], fed_by: [MSB-1],
+     history: {pattern: rare, days_ago: [88, 180, 271], dur_min: [2880, 4320], resolution: ticket}}
+
+  # --- Server room --------------------------------------------------------------
+  - {point: SR.T1, label: "Server room temperature high", equip: SR-T1, equip_label: "Server room sensor T-1", loc: "Floor 1, server room", zone: F1-server, floor: 1, category: server_room_temp, criticality: high, bms: High, serves: [], fed_by: [], critical_limit: 32, critical_limit_name: "IT equipment shutdown limit",
+     history: {pattern: rare, days_ago: [23, 61], dur_min: [4, 9]}}
+  - {point: CRAC-2.COMP, label: "CRAC-2: compressor fault", equip: CRAC-2, equip_label: "Cooling unit CRAC-2", loc: "Floor 1, server room", zone: F1-server, floor: 1, category: crac, criticality: high, bms: High, serves: [F1-server], fed_by: [MSB-1],
+     attributes: "one of two cooling units for the server room (the other is CRAC-1)",
+     history: {pattern: none}}
+  - {point: LC-S.COMM, label: "Lighting controller LC-S: offline", equip: LC-S, equip_label: "Lighting controller LC-S", loc: "Floor 1, server room", zone: F1-server, floor: 1, category: lighting, criticality: low, bms: Low, serves: [F1-server], fed_by: [MSB-1],
+     history: {pattern: recurring, per_30d: 3, dur_min: [5, 40]}}
+  - {point: LC-L.COMM, label: "Lighting controller LC-L: offline", equip: LC-L, equip_label: "Lighting controller LC-L", loc: "Lobby", zone: G-lobby, floor: 1, category: lighting, criticality: low, bms: Low, serves: [G-lobby], fed_by: [MSB-1],
+     history: {pattern: recurring, per_30d: 6, dur_min: [10, 55]}}
+
+  # --- Electrical and power-dependent points ------------------------------------------
+  - {point: MSB-1.V, label: "Main switchboard MSB-1: voltage dip", equip: MSB-1, equip_label: "Switchboard MSB-1", loc: "Electrical room, basement", zone: B-elec, floor: B, category: electrical_power, criticality: high, bms: High, serves: [BUILDING], fed_by: [UTILITY]}
+  - {point: UPS-1.BATT, label: "UPS-1: on battery", equip: UPS-1, equip_label: "UPS-1", loc: "Electrical room, basement", zone: B-elec, floor: B, category: ups, criticality: high, bms: High, serves: [F1-server], fed_by: [MSB-1]}
+  - {point: FC-3.RST, label: "Field controller FC-3: restarted", equip: FC-3, equip_label: "Field controller FC-3", loc: "Floor 3, riser", zone: F3-riser, floor: 3, category: controller, criticality: low, bms: Low, serves: [F3], fed_by: [MSB-1]}
+  - {point: FC-4.RST, label: "Field controller FC-4: restarted", equip: FC-4, equip_label: "Field controller FC-4", loc: "Floor 4, riser", zone: F4-riser, floor: 4, category: controller, criticality: low, bms: Low, serves: [F4], fed_by: [MSB-1]}
+  - {point: ACP.BATT, label: "Access control panel: on battery", equip: ACP, equip_label: "Access control panel", loc: "Lobby", zone: G-lobby, floor: 1, category: access_control, criticality: medium, bms: Medium, serves: [BUILDING], fed_by: [MSB-1]}
+  - {point: EL-1.FLT, label: "Elevator 1: out of service", equip: EL-1, equip_label: "Elevator 1", loc: "Core, all floors", zone: CORE, floor: 1, category: elevator, criticality: high, bms: High, serves: [CORE], fed_by: [MSB-1]}
+  - {point: EL-2.FLT, label: "Elevator 2: out of service", equip: EL-2, equip_label: "Elevator 2", loc: "Core, all floors", zone: CORE, floor: 1, category: elevator, criticality: high, bms: High, serves: [CORE], fed_by: [MSB-1]}
+  - {point: FAP.PSU, label: "Fire alarm panel: power supply trouble", equip: FAP, equip_label: "Fire alarm panel", loc: "Lobby", zone: G-lobby, floor: 1, category: fire, criticality: high, bms: High, serves: [BUILDING], fed_by: [MSB-1]}
+
+  # --- Plumbing -------------------------------------------------------------------
+  - {point: WL-B2, label: "Water leak sensor: basement supply pipe", equip: WL-B2, equip_label: "Leak sensor WL-B2", loc: "Basement, under main supply pipe", zone: B-supply, floor: B, category: water_leak, criticality: high, bms: High, serves: [], fed_by: [],
+     attributes: "mounted under the main domestic water supply pipe",
+     history: {pattern: none}}
+
+# Families of similar points, expanded by the loader (id pattern uses {n}).
+families:
+  - {n: [1, 12], point: "AHU-{n}.FAN", label: "AHU-{n}: supply fan failure", equip: "AHU-{n}", equip_label: "Air handler AHU-{n}", loc: "Roof", zone: "R-ahu{n}", floor: R, category: hvac_ahu, criticality: medium, bms: High, serves: [], fed_by: [MSB-1, CHW-LOOP]}
+  - {n: [1, 9], point: "VAVC-{n}.COMM", label: "VAV controller {n}: no communication", equip: "VAVC-{n}", equip_label: "VAV controller {n}", loc: "Floor {floor}", zone: "F{floor}-vavc", floor: "{floor}", category: controller, criticality: low, bms: Medium, serves: [], fed_by: [MSB-1]}
+  - {n: [1, 6], point: "P-{n}.RUN", label: "Pump P-{n}: stopped unexpectedly", equip: "P-{n}", equip_label: "Pump P-{n}", loc: "Plant room, basement", zone: B-plant, floor: B, category: pump, criticality: medium, bms: High, serves: [CHW-LOOP], fed_by: [MSB-1]}
+  - {n: [1, 8], point: "LC-{n}.COMM", label: "Lighting controller LC-{n}: offline", equip: "LC-{n}", equip_label: "Lighting controller LC-{n}", loc: "Floor {floor}", zone: "F{floor}-light", floor: "{floor}", category: lighting, criticality: low, bms: Low, serves: [], fed_by: [MSB-1]}
+
+# Past building-wide events: every matching point gets one history entry.
+history_incidents:
+  # Same event, split by how long each kind of equipment took to come back.
+  - {name: "utility voltage dip", days_ago: 188, at: "09:41", dur_min: [1, 2],
+     points: ["MSB-1.V", "UPS-1.BATT", "P-*.RUN", "FC-*.RST"]}
+  - {name: "utility voltage dip", days_ago: 188, at: "09:41", dur_min: [1.6, 3],
+     points: ["AHU-*.FAN", "EL-*.FLT"]}
+  - {name: "utility voltage dip", days_ago: 188, at: "09:41", dur_min: [2, 4],
+     points: ["VAVC-*.COMM", "LC-[0-9].COMM", "ACP.BATT"]}
+
+tickets:
+  - {equip: LC-L, opened_days_ago: 9, closed_days_ago: null, summary: "Lobby lighting controller drops off the network intermittently"}
+  - {equip: EF-P1, opened_days_ago: 3, closed_days_ago: null, summary: "Quarterly service booked"}
+  - {equip: CRAC-2, opened_days_ago: 210, closed_days_ago: 205, summary: "Annual CRAC service"}
+
+# Display names for equipment and zones that are not alarm points themselves.
+names:
+  CHW-LOOP: "chilled-water loop"
+  UTILITY: "utility supply"
+  BUILDING: "the whole building"
+  CORE: "building core"
+  F1: "floor 1"
+  F2: "floor 2"
+  F3: "floor 3"
+  F4: "floor 4"
+  P: "parking level"
